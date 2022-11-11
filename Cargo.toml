@@ -1,0 +1,21 @@
+[package]
+name = "spotify-fm"
+version = "1.0.0"
+authors = ["malcom"]
+license = "GPL"
+description = "stream spotify via icecast"
+keywords = ["spotify"]
+repository = "https://github.com/malevolm/spotify-fm"
+readme = "README.md"
+edition = "2021"
+
+[workspace]
+
+[[bin]]
+name = "spotify-fm"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal", "sync", "process"] }
+librespot = { version = "0.4.1", features = ["pulseaudio-backend"] }
