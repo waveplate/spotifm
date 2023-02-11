@@ -1,6 +1,5 @@
 use actix_web::{web::{self, Path, Data}, rt, middleware, App, HttpServer, HttpRequest, HttpResponse};
-use std::{env, thread, sync::mpsc::{SyncSender}};
-use std::sync::{Arc,Mutex};
+use std::{thread, sync::mpsc::{SyncSender}};
 use chrono::{Duration as ChronoDuration, Utc};
 use librespot::core::{keymaster, session::Session, spotify_id::SpotifyId};
 use librespot::playback::player::{PlayerEvent};
@@ -19,7 +18,7 @@ const SCOPES: &str =
     "streaming,user-read-playback-state,user-modify-playback-state,user-read-currently-playing";
 
 #[get("/search/{type}/{num}")]
-pub async fn search(req: HttpRequest, path: Path<(String,u32)>, session: Data<Arc<Mutex<Session>>>) -> HttpResponse {
+pub async fn search(req: HttpRequest, path: Path<(String,u32)>, session: Data<Session>) -> HttpResponse {
     let query = web::Query::<HashMap<String,String>>::from_query(req.query_string()).unwrap();
     let search_type = match path.0.0.to_string().to_lowercase().as_str() {
         "track" => SearchType::Track,
@@ -49,16 +48,16 @@ pub async fn search(req: HttpRequest, path: Path<(String,u32)>, session: Data<Ar
 }
 
 #[get("/np")]
-pub async fn np(db: Data<Arc<Mutex<SpotifyDatabase>>>) -> HttpResponse {
-    return match db.lock().unwrap().current_track() {
+pub async fn np(db: Data<SpotifyDatabase>) -> HttpResponse {
+    return match db.current_track() {
         Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.unwrap().to_string())])),
         Ok(track) => HttpResponse::Ok().json(track),
     }
 }
 
 #[get("/skip")]
-pub async fn skip(data: Data<SyncSender<PlayerEvent>>, db: Data<Arc<Mutex<SpotifyDatabase>>>) -> HttpResponse {
-    let next_playing = db.lock().unwrap().next_track().unwrap();
+pub async fn skip(data: Data<SyncSender<PlayerEvent>>, db: Data<SpotifyDatabase>) -> HttpResponse {
+    let next_playing = db.next_track().unwrap();
     return match data.send(PlayerEvent::Stopped { play_request_id: 0, track_id: SpotifyId::from_base62("0").unwrap() }) {
         Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
         Ok(_) => {
@@ -68,9 +67,9 @@ pub async fn skip(data: Data<SyncSender<PlayerEvent>>, db: Data<Arc<Mutex<Spotif
 }
 
 #[get("/queue/{id}")]
-pub async fn queue(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, session: Data<Arc<Mutex<Session>>>, db: Data<Arc<Mutex<SpotifyDatabase>>>) -> HttpResponse {
-    let now_playing = db.lock().unwrap().current_track().unwrap();
-    let next_playing = db.lock().unwrap().next_track().unwrap();
+pub async fn queue(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, session: Data<Session>, db: Data<SpotifyDatabase>) -> HttpResponse {
+    let now_playing = db.current_track().unwrap();
+    let next_playing = db.next_track().unwrap();
 
     if now_playing.id == path.0.as_str() {
         return HttpResponse::Ok().json(now_playing);
@@ -85,7 +84,7 @@ pub async fn queue(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, sess
                 Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
                 Ok(track) => {
                     let spotify_track = SpotifyTrack::new(track.id.unwrap().to_string().split(":").collect::<Vec<&str>>().get(2).unwrap().to_string(), track.name, track.artists.iter().map(|x| x.clone().name).collect());
-                    return match db.lock().unwrap().queue_track(spotify_track.clone()) {
+                    return match db.queue_track(spotify_track.clone()) {
                         Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
                         Ok(_) => {
                             return match data.send(PlayerEvent::Changed { old_track_id: now_playing.spotify_id(), new_track_id: spotify_track.spotify_id() }) {
@@ -104,9 +103,9 @@ pub async fn queue(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, sess
 }
 
 #[get("/play/{id}")]
-pub async fn play(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, session: Data<Arc<Mutex<Session>>>, db: Data<Arc<Mutex<SpotifyDatabase>>>) -> HttpResponse {
-    let now_playing = db.lock().unwrap().current_track().unwrap();
-    let next_playing = db.lock().unwrap().next_track().unwrap();
+pub async fn play(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, session: Data<Session>, db: Data<SpotifyDatabase>) -> HttpResponse {
+    let now_playing = db.current_track().unwrap();
+    let next_playing = db.next_track().unwrap();
 
     if now_playing.id == path.0.as_str() {
         return HttpResponse::Ok().json(now_playing);
@@ -121,7 +120,7 @@ pub async fn play(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, sessi
                 Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
                 Ok(track) => {
                     let spotify_track = SpotifyTrack::new(track.id.unwrap().to_string().split(":").collect::<Vec<&str>>().get(2).unwrap().to_string(), track.name, track.artists.iter().map(|x| x.clone().name).collect());
-                    return match db.lock().unwrap().queue_track(spotify_track.clone()) {
+                    return match db.queue_track(spotify_track.clone()) {
                         Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
                         Ok(_) => {
                             return match data.send(PlayerEvent::Changed { old_track_id: now_playing.spotify_id(), new_track_id: spotify_track.spotify_id() }) {
@@ -142,15 +141,15 @@ pub async fn play(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, sessi
 }
 
 #[get("/playlist")]
-pub async fn show_playlist(db: Data<Arc<Mutex<SpotifyDatabase>>>) -> HttpResponse {
-    return match db.lock().unwrap().read() {
+pub async fn show_playlist(db: Data<SpotifyDatabase>) -> HttpResponse {
+    return match db.read() {
         Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
         Ok(state) => HttpResponse::Ok().json(state.queue),
     }
 }
 
-async fn api(session: Data<Arc<Mutex<Session>>>) -> Result<AuthCodeSpotify, Option<String>> {
-    return match keymaster::get_token(&session.clone().lock().unwrap(), CLIENT_ID, SCOPES).await {
+async fn api(session: Data<Session>) -> Result<AuthCodeSpotify, Option<String>> {
+    return match keymaster::get_token(&session.clone(), CLIENT_ID, SCOPES).await {
         Err(_) => Err(Some("could not get token".to_string())),
         Ok(search_token) => {
             let token = rspotify::Token {
@@ -171,11 +170,8 @@ async fn api(session: Data<Arc<Mutex<Session>>>) -> Result<AuthCodeSpotify, Opti
 }
 
 #[actix_rt::main]
-pub async fn start(tx: SyncSender<PlayerEvent>, session: Arc<Mutex<Session>>, db: Arc<Mutex<SpotifyDatabase>>) {
+pub async fn start(tx: SyncSender<PlayerEvent>, session: Session, db: SpotifyDatabase) {
     thread::spawn(move || {
-        env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
-        env_logger::init();
-
         match rt::System::new("rest-api").block_on(
             HttpServer::new(move || {
                 let tx = web::Data::new(tx.clone());
