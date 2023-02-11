@@ -76,8 +76,7 @@ impl SpotifyDatabase {
         return match self.read() {
             Err(err) => Err(err.to_string()),
             Ok(mut state) => {
-                let new_pos: usize = if state.queue.len() > 0 { state.queue.len() } else { 0 };
-                state.queue.insert(new_pos, track);
+                state.queue.insert(state.queue.len(), track);
                 self.write(state.clone());
                 return Ok(state);
             },
@@ -171,13 +170,17 @@ pub fn populate(uri: String, session: Session, db: SpotifyDatabase) {
                 "track" => {
                     tracks.push(spotify_id);
                 },
+                "artist" => {
+                    let list = Artist::get(&session.clone(), spotify_id).await.unwrap();
+                    tracks = list.top_tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
+                },
                 "album" => {
-                    let alist = Album::get(&session.clone(), spotify_id).await.unwrap();
-                    alist.tracks.iter().for_each(|track| { tracks.push(*track)});
+                    let list = Album::get(&session.clone(), spotify_id).await.unwrap();
+                    tracks = list.tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
                 },
                 "playlist" => {
-                    let plist = Playlist::get(&session.clone(), spotify_id).await.unwrap();
-                    plist.tracks.iter().for_each(|track| { tracks.push(*track)});
+                    let list = Playlist::get(&session.clone(), spotify_id).await.unwrap();
+                    tracks = list.tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
                 },
                 _ => {
                     panic!("Malformed Spotify URI")
@@ -188,26 +191,20 @@ pub fn populate(uri: String, session: Session, db: SpotifyDatabase) {
                 let session = session.clone();
                 let mut track = SpotifyTrack::new(track_id.to_base62().unwrap(), "".to_string(), Vec::new());
 
-                let mut artist_ids: Vec<SpotifyId> = Vec::new();
-
                 match Track::get(&session.clone(), track_id).await {
                     Err(_) => {},
                     Ok(track_info) => { 
-                        artist_ids = track_info.artists;
                         track.track = track_info.name;
+                        for id in track_info.artists {
+                            match Artist::get(&session.clone(), id).await {
+                                Err(_) => {  },
+                                Ok(artist) => { track.artists.push(artist.name) },
+                            }
+                        };
+          
+                        db.add_track(track).expect("error adding track to in-memory database");
                     },
                 };
-
-                for id in artist_ids {
-                    match Artist::get(&session.clone(), id).await {
-                        Err(_) => {  },
-                        Ok(artist) => { track.artists.push(artist.name) },
-                    }
-                };
-  
-                if track.artists.len() > 0 {
-                    db.add_track(track).expect("error adding track to in-memory database");
-                }
             }
         });
     });
