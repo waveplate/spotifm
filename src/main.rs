@@ -76,7 +76,6 @@ async fn main() {
                     if !player_event.is_err() {
                         events.push(player_event.unwrap());
                     }
-
                     
                     for event in events {
                         match event {
@@ -93,7 +92,6 @@ async fn main() {
                             _ => {}    
                         }
                     };
-        
                 }
             },
         }

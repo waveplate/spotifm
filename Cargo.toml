@@ -1,6 +1,6 @@
 [package]
 name = "spotify-fm"
-version = "1.0.4"
+version = "1.0.6"
 authors = ["anatolybazarov"]
 license = "GPL"
 description = "stream spotify via icecast"

@@ -1,4 +1,4 @@
-# spotify-fm (alpha-1.0.4)
+# spotify-fm (alpha-1.0.6)
 
 spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
 
