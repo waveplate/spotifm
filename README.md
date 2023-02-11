@@ -2,6 +2,8 @@
 
 spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
 
+> note: spotify-fm only works with spotify premium accounts
+
 ## quick start
 ### 1) configuration
 edit `config.env.example` and rename it to `config.env` 
