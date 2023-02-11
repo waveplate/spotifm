@@ -9,7 +9,7 @@ edit `config.env.example` and rename it to `config.env`
 
 `SPOTIFY_USER` is your email
 
-`SPOTIFY_USER` is your password
+`SPOTIFY_PASS` is your password
 
 `SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
 
