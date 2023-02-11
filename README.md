@@ -46,6 +46,7 @@ all return (example):
 ``` 
 or `{ "error": "<error msg>"}`
 ### `GET /playlist`
+### `GET /shuffle`
 returns (example):
 ```
 [

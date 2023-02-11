@@ -13,6 +13,9 @@ use rustbreak::{
     RustbreakError,
 };
 
+use rand::thread_rng;
+use rand::seq::SliceRandom;
+
 #[derive(Clone)]
 pub struct SpotifyDatabase {
     pub handle: Arc<Mutex<MemoryDatabase::<SpotifyState, Ron>>>
@@ -69,6 +72,19 @@ impl SpotifyDatabase {
         return match self.read() {
             Err(_) => 0,
             Ok(state) => state.queue.len(),
+        }
+    }
+
+    pub fn shuffle(&self) -> Result<SpotifyState, String> {
+        return match self.read() {
+            Err(err) => Err(err.to_string()),
+            Ok(mut state) => {
+                let current_id = state.queue.get(state.queue_position).unwrap().id.clone();
+                state.queue.shuffle(&mut thread_rng());
+                state.queue_position = state.queue.iter().position(|x| x.id == current_id).unwrap();
+                self.write(state.clone());
+                return Ok(state);
+            }
         }
     }
 

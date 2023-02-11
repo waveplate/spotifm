@@ -28,6 +28,7 @@ serde_json = "1.0.51"
 env_logger = "0.7.1"
 chrono = "*"
 iconv = "*"
+rand = "*"
 
 [dependencies.librespot]
 version = "0.4.1"

@@ -66,6 +66,14 @@ pub async fn skip(data: Data<SyncSender<PlayerEvent>>, db: Data<SpotifyDatabase>
     };
 }
 
+#[get("/shuffle")]
+pub async fn shuffle(db: Data<SpotifyDatabase>) -> HttpResponse {
+    return match db.shuffle() {
+        Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
+        Ok(state) => HttpResponse::Ok().json(state.queue),  
+    }
+}
+
 #[get("/queue/{id}")]
 pub async fn queue(path: Path<String>, data: Data<SyncSender<PlayerEvent>>, session: Data<Session>, db: Data<SpotifyDatabase>) -> HttpResponse {
     let now_playing = db.current_track().unwrap();
@@ -188,6 +196,7 @@ pub async fn start(tx: SyncSender<PlayerEvent>, session: Session, db: SpotifyDat
                     .service(play)
                     .service(search)
                     .service(show_playlist)
+                    .service(shuffle)
             })
             .bind("0.0.0.0:9090")
             .unwrap()
