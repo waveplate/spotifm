@@ -1,4 +1,4 @@
-# spotify-fm (alpha-1.0.6)
+# spotify-fm (1.0.6-alpha)
 
 spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
 
@@ -27,10 +27,10 @@ edit `config.env.example` and rename it to `config.env`
 > spotify-fm will spawn a rest api on port `9090`
 
 ## rest api endpoints
-#### `GET /np`
-#### `GET /skip`
-#### `GET /queue/<TRACK-ID>`
-#### `GET /play/<TRACK-ID>`
+### `GET /np`
+### `GET /skip`
+### `GET /queue/<TRACK-ID>`
+### `GET /play/<TRACK-ID>`
 all return (example):
 ```
 {
