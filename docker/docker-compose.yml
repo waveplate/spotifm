@@ -16,6 +16,7 @@ services:
         target: /usr/local/bin/spotify-fm
     ports:
       - "0.0.0.0:8088:8000"
+      - "0.0.0.0:9090:9090"
     depends_on:
       - build-spotify-fm
     env_file:

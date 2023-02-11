@@ -1,7 +1,8 @@
-use core::{default, time};
-use std::{env, thread, sync::mpsc, sync::Arc, sync::Mutex, process::exit, fs, fmt::Debug};
-use rustbreak::Database;
-use signal_hook::{consts::SIGINT, iterator::Signals};
+#[macro_use]
+extern crate actix_web;
+
+use core::{time};
+use std::{env, thread, sync::mpsc::{Receiver,SyncSender, sync_channel}, sync::Arc, sync::Mutex, process::exit, fmt::Debug};
 use librespot::core::authentication::Credentials;
 use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
@@ -19,6 +20,10 @@ use rustbreak::{
 
 use std::collections::HashMap;
 
+use actix_web::{web::{self}, rt, middleware, App, HttpServer};
+
+mod backend;
+
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 struct SpotifyTrack {
     track: String,
@@ -27,17 +32,10 @@ struct SpotifyTrack {
 
 #[tokio::main]
 async fn main() {
-    
-    
-    // let (tx, rx) = mpsc::channel();
 
-    // let mut signals = Signals::new(&[SIGINT])?;
+    let (tx, rx): (SyncSender<PlayerEvent>, Receiver<PlayerEvent>)  = sync_channel(100);
 
-    // thread::spawn(move || {
-    //     for sig in signals.forever() {
-    //         println!("Received signal {:?}", sig);
-    //     }
-    // });
+    start_rest(tx.clone());
 
     let np_db = FileDatabase::<HashMap<String, SpotifyTrack>, Ron>::load_from_path_or_default("/tmp/now-playing").map_err(|err| { ini_error(err.to_string().as_str()) }).unwrap();
 
@@ -46,7 +44,7 @@ async fn main() {
     let audio_format = AudioFormat::default();
 
     let args: Vec<_> = env::args().collect();
-    
+
     if args.len() < 5 {
         eprintln!("Usage: {} USERNAME PASSWORD TRACK PIPE", args[0]);
         return;
@@ -68,10 +66,6 @@ async fn main() {
     
     let mut tracks: Vec<SpotifyId> = Vec::new();
 
-    
-    
-
-
     match spotify_uri[1] {
         "track" => {
             tracks.push(spotify_id);
@@ -89,9 +83,10 @@ async fn main() {
         },
     };
 
-    for track_id in tracks {
+    for i in 0..tracks.len() {
+        let track_id = tracks[i].clone();
         let session = session.clone();
-
+        
         let track = Track::get(&session, track_id).await
             .map_err(|_| { ini_error("Could not retrieve metadata"); })
             .unwrap();
@@ -126,34 +121,41 @@ async fn main() {
         let (player, _) = Player::new(player_config.clone(), session, Box::new(NoOpVolume), move || {
             backend(None, audio_format)
         });
-
+        
         let player_mutex = Arc::new(Mutex::new(player));
-        let player_clone = Arc::clone(&player_mutex);
 
-        let mut signals = Signals::new(&[signal_hook::consts::SIGHUP]).expect("error creating signal handler");
-
-        thread::spawn(move || {
-            for sig in signals.forever() {
-                eprintln!("Received signal {:?}", sig);
-                player_clone.lock().unwrap().stop();
-            }
-        });
-   
         player_mutex.lock().unwrap().load(track_id, true, 0);
 
-        let mut i = 1;
-
         let mut channel = player_mutex.lock().unwrap().get_player_event_channel();
-        while let Some(event) = channel.recv().await {
-            eprintln!("i={}", i);
-            i=i+1;
+        
+        'event_listener: while let event = channel.try_recv() {
 
-            if matches!(
-                event,
-                PlayerEvent::EndOfTrack { .. } | PlayerEvent::Stopped { .. }
-            ) {
-                break;
+            std::thread::sleep(time::Duration::from_millis(500));
+
+            let rest_event = rx.try_recv();
+
+            let mut player_events: Vec<PlayerEvent> = Vec::new();
+
+            if !event.is_err() {
+                player_events.push(event.unwrap());
             }
+
+            if !rest_event.is_err() {
+                player_events.push(rest_event.unwrap());
+            }
+            
+            for player_event in player_events {
+                match player_event {
+                    PlayerEvent::EndOfTrack { .. } => { break 'event_listener },
+                    PlayerEvent::Stopped { .. } => { player_mutex.lock().unwrap().stop(); break 'event_listener },   
+                    PlayerEvent::Changed { old_track_id: _, new_track_id } => {
+                        eprintln!("up next: {}", new_track_id.to_base62().unwrap().as_str());
+                        tracks.insert(tracks.iter().position(|&x| x == track_id).unwrap()+1, new_track_id);
+                    },
+                    _ => {}    
+                }
+            };
+
         }
 
     }
@@ -169,9 +171,30 @@ fn ini_error(msg: &str) {
     exit(1);
 }
 
-// fn get_playing(db: FileDatabase::<HashMap<String, SpotifyTrack>, Ron>) -> &'static SpotifyTrack {
-//     let ok: &'static SpotifyTrack = db.read(|db| {
-//         return db.values().next().clone();
-//     }).unwrap().unwrap();
-//     return ok;
-// }
+#[actix_rt::main]
+async fn start_rest(tx: SyncSender<PlayerEvent>) {
+    thread::spawn(move || {
+        env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
+        env_logger::init();
+    
+        let tx = web::Data::new(tx.clone());
+
+        rt::System::new("rest-api").block_on(
+            HttpServer::new(move || {
+                let tx = tx.clone();
+                App::new()
+                    // enable logger - always register actix-web Logger middleware last
+                    .wrap(middleware::Logger::default())
+                    .app_data(tx)
+                    // register HTTP requests handlers
+                    .service(backend::skip)
+                    .service(backend::queue)
+                    .service(backend::play)
+            })
+            .bind("0.0.0.0:9090")
+            .unwrap()
+            .run()
+        ).expect("could not start rest api");
+
+    });
+}

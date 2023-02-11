@@ -12,15 +12,11 @@ RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i 
 USER root
 
 COPY darkice.cfg /etc/darkice.cfg
-#COPY dist/spotify-server.sh /usr/local/bin
-#COPY dist/spotify-play.sh /usr/local/bin
-#COPY dist/spotify-fm /usr/local/bin
 COPY dist/entrypoint.sh /
-COPY dist/start-server.sh /usr/local/bin
 RUN chmod -R +x /usr/local/bin/
 
 EXPOSE 8000
-EXPOSE 1234
+EXPOSE 9090
 
 USER root
 

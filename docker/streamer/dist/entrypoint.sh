@@ -12,5 +12,5 @@ su - user -c "darkice -c /etc/darkice.cfg &"
 sleep 2
 
 echo "Starting spotifyd..."
-su - user -c "spotify-server.sh $SPOTIFY_USER $SPOTIFY_PASS"
+su - user -c "spotify-fm $SPOTIFY_USER $SPOTIFY_PASS $SPOTIFY_URI pulseaudio"
 
