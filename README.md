@@ -3,11 +3,14 @@
 spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
 
 ## quick start
----
 ### 1) configuration
 edit `config.env.example` and rename it to `config.env` 
+
+
 `SPOTIFY_USER` is your email
+
 `SPOTIFY_USER` is your password
+
 `SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
 
 #### 2) build spotify-fm
@@ -18,11 +21,12 @@ edit `config.env.example` and rename it to `config.env`
 
 #### 3) deploy spotify-fm
 `docker compose up -d --force-recreate streamer`
+
 > icecast2 will become available on port `8000`
+
 > spotify-fm will spawn a rest api on port `9090`
 
 ## rest api endpoints
----
 #### `GET /np`
 returns (example):
 ```
