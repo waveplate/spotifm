@@ -18,12 +18,10 @@ const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 const SCOPES: &str =
     "streaming,user-read-playback-state,user-modify-playback-state,user-read-currently-playing";
 
-//const SCOPES: = scopes!("user-read-playback-state user-modify-playback-state user-read-currently-playing");
-
 #[get("/search/{type}/{num}")]
 pub async fn search(req: HttpRequest, path: Path<(String,u32)>, session: Data<Arc<Mutex<Session>>>) -> HttpResponse {
     let query = web::Query::<HashMap<String,String>>::from_query(req.query_string()).unwrap();
-    let search_type = match path.0.0.as_str() {
+    let search_type = match path.0.0.to_string().to_lowercase().as_str() {
         "track" => SearchType::Track,
         "artist" => SearchType::Artist,
         "album" => SearchType::Album,
