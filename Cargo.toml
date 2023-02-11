@@ -1,7 +1,7 @@
 [package]
 name = "spotify-fm"
-version = "1.0.0"
-authors = ["malcom"]
+version = "1.0.4"
+authors = ["anatolybazarov"]
 license = "GPL"
 description = "stream spotify via icecast"
 keywords = ["spotify"]
@@ -17,8 +17,7 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal", "sync", "process"] }
-acid-store = { version = "0.12.1", features = ["store-directory"] }
+tokio = { version = "1", features = ["macros", "signal", "sync", "process"] }
 signal-hook = "*"
 rustbreak = { version = "2.0.0", features = ["ron_enc"] }
 serde_derive = "1"
@@ -37,4 +36,4 @@ features = ["pulseaudio-backend"]
 [dependencies.rspotify]
 version = "0.11.5"
 default-features = false
-features = ["client-ureq", "ureq-rustls-tls", "cli"]
+features = ["client-ureq", "ureq-rustls-tls"]
