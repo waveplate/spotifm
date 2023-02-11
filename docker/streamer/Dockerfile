@@ -8,7 +8,7 @@ RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i 
     && useradd -u 1000 -m -d /home/user -s /bin/bash user \
     && usermod -aG audio user
 
-COPY dist/entrypoint.sh /
+COPY entrypoint.sh /
 RUN chmod -R +x /usr/local/bin/
 RUN chmod 777 /tmp
 
