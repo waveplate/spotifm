@@ -43,6 +43,22 @@ all return (example):
 }
 ``` 
 or `{ "error": "<error msg>"}`
+### `GET /playlist`
+returns (example):
+```
+[
+    {
+        "id": "6bu8npt0GdVeESCM7K4The",
+        "rid": 1676118353658,
+        "track": "Speak Up",
+        "artists": [
+            "Freddie Dredd"
+        ]
+    },
+    
+    ...
+]
+```
 ### `GET /search/<TRACK|ARTIST|ALBUM|PLAYLIST>/<LIMIT>?q=<QUERY>`
 returns (example):
 ```
