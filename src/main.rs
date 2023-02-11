@@ -86,15 +86,19 @@ async fn main() {
         };
 
         match db::write(track, artists) {
-            Err(err) => panic!("{}", err.to_string()),
+            Err(err) => { panic!("{}", err.to_string()) },
             Ok(_) => {},
         };
 
-        let (mut player, _) = Player::new(player_config.clone(), session, Box::new(NoOpVolume), move || {
+        let (mut player, _) = Player::new(player_config.clone(), session, Box::new(NoOpVolume), move|| {
             backend(None, audio_format)
         });
 
         player.load(tracks[i], true, 0);
+
+        if i < tracks.len()-1 {
+            player.preload(tracks[i+1]);
+        }
 
         let mut player_rx = player.get_player_event_channel();
         
@@ -128,6 +132,7 @@ async fn main() {
                             },
                             None => {},
                         }
+                        player.preload(new_track_id);
                         tracks.insert(i+1, new_track_id);
                     },
                     _ => {}    
