@@ -100,7 +100,7 @@ async fn main() {
         
         'event_listener: loop {
 
-            std::thread::sleep(time::Duration::from_millis(500));
+            std::thread::sleep(time::Duration::from_millis(100));
             
             let rest_event = rest_rx.try_recv();
             let player_event = player_rx.try_recv();
