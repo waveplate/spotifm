@@ -15,7 +15,7 @@ pub struct SpotifyTrack {
 }
 
 pub fn open() -> Result<FileDatabase::<HashMap<String, SpotifyTrack>, Ron>, RustbreakError> {
-    return FileDatabase::<HashMap<String, SpotifyTrack>, Ron>::load_from_path_or_default("./now-playing");
+    return FileDatabase::<HashMap<String, SpotifyTrack>, Ron>::load_from_path_or_default("./now-playing").map_err(|err| return err);
 }
 
 pub fn write(track: Track, artists: Vec<Artist>) -> error::Result<()> {
@@ -31,23 +31,22 @@ pub fn write(track: Track, artists: Vec<Artist>) -> error::Result<()> {
                         artists: artists.iter().map(|a| a.name.clone()).clone().collect(),
                     }
                 );
-                
-                match npdb.save() {
-                    Err(err) => Err(err),
-                    Ok(_) => {
-                        match npdb.load() {
-                            Err(err) => Err(err),
-                            Ok(_) => Ok(()),
-                        }
-                    }
-                }
             }) {
                 Err(err) => Err(err),
-                Ok(_) => Ok(()),
+                Ok(_) => {
+                    return match npdb.save() {
+                        Err(err) => Err(err),
+                        Ok(_) => {
+                            return match npdb.load() {
+                                Err(err) => Err(err),
+                                Ok(_) => Ok(()),
+                            }
+                        },
+                    }
+                },
             };
         },
     }
-
 }
 
 pub fn now_playing() -> Result<SpotifyTrack, RustbreakError> {
