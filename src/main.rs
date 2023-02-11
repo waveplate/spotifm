@@ -2,6 +2,7 @@
 extern crate actix_web;
 
 use core::{time};
+use std::sync::{Arc,Mutex};
 use std::{env, sync::mpsc::{Receiver,SyncSender, sync_channel}, process::exit};
 use librespot::core::authentication::Credentials;
 use librespot::core::config::SessionConfig;
@@ -41,13 +42,17 @@ async fn main() {
 
     let backend = audio_backend::find(Some(args[4].to_string())).unwrap();
 
-    let (session, _) = Session::connect(session_config, credentials, None, false).await
+    let (session, creds) = Session::connect(session_config, credentials, None, false).await
         .map_err(|err| { panic!("{}", err.to_string())} )
         .unwrap();
 
+    eprintln!("{:?}", creds);
+
+    // let rest_session = Arc::new(Mutex::new(session.clone()));
+
     let (rest_tx, rest_rx): (SyncSender<PlayerEvent>, Receiver<PlayerEvent>) = sync_channel(100);
 
-    rest::start(rest_tx.clone());
+    //rest::start(rest_tx.clone(), rest_session.clone());
     
     let mut tracks: Vec<SpotifyId> = Vec::new();
 
