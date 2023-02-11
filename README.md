@@ -1,4 +1,4 @@
-# spotify-fm (alpha-1.0.0)
+# spotify-fm (alpha-1.0.4)
 
 spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
 
@@ -28,20 +28,44 @@ edit `config.env.example` and rename it to `config.env`
 
 ## rest api endpoints
 #### `GET /np`
-returns (example):
+#### `GET /skip`
+#### `GET /queue/<TRACK-ID>`
+#### `GET /play/<TRACK-ID>`
+all return (example):
 ```
 {
-    "track": "Hysteria",
+    "id": "6bu8npt0GdVeESCM7K4The",
+    "rid": 1676115018281,
+    "track": "Speak Up",
     "artists": [
-        "Undagroundmane",
-        "Whiteye$"
+        "Freddie Dredd"
     ]
 }
 ``` 
 or `{ "error": "<error msg>"}`
-#### `GET /skip`
-returns `{ "skip": true }` or `{ "error": "<error msg>"}`
-#### `GET /queue/<TRACK-ID>`
-returns `{ "queue": true }` or `{ "error": "<error msg>"}`
-#### `GET /play/<TRACK-ID>`
-returns `{ "play": true }` or `{ "error": "<error msg>"}`
+### `GET /search/<TRACK|ARTIST|ALBUM|PLAYLIST>/<LIMIT>?q=<QUERY>`
+returns (example):
+```
+[
+    {
+        "album": { ... },
+        "artists": [ ... ],
+        "available_markets": [ ... ],
+        "disc_number": 1,
+        "duration_ms": 122331,
+        "explicit": true,
+        "external_ids": { ... },
+        "external_urls": { ... },
+        "href": "https://api.spotify.com/v1/tracks/2nzjXDv6OuRHrHKhfhfB98",
+        "id": "2nzjXDv6OuRHrHKhfhfB98",
+        "is_local": false,
+        "name": "Low Key",
+        "popularity": 62,
+        "preview_url": "https://p.scdn.co/mp3-preview/c4008f1cb619949d448818891c5839404a0d53ad?cid=65b708073fc0480ea92a077233ca87bd",
+        "track_number": 3
+    },
+
+    ...
+]
+```
+or `{ "error": "<error msg>"}`
