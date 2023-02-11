@@ -13,13 +13,13 @@ edit `config.env.example` and rename it to `config.env`
 
 `SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
 
-#### 2) build spotify-fm
+### 2) build spotify-fm
 ##### docker
 `docker compose run --rm -u builder -i build-spotify-fm`
 ##### native
 `cargo build --release`
 
-#### 3) deploy spotify-fm
+### 3) deploy spotify-fm
 `docker compose up -d --force-recreate streamer`
 
 > icecast2 will become available on port `8000`
@@ -55,7 +55,7 @@ returns (example):
             "Freddie Dredd"
         ]
     },
-    
+
     ...
 ]
 ```
