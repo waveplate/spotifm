@@ -5,7 +5,7 @@ authors = ["malcom"]
 license = "GPL"
 description = "stream spotify via icecast"
 keywords = ["spotify"]
-repository = "https://github.com/malevolm/spotify-fm"
+repository = "https://github.com/anatolybazarov/spotify-fm"
 readme = "README.md"
 edition = "2021"
 
@@ -19,3 +19,9 @@ doc = false
 [dependencies]
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "signal", "sync", "process"] }
 librespot = { version = "0.4.1", features = ["pulseaudio-backend"] }
+acid-store = { version = "0.12.1", features = ["store-directory"] }
+fs-db = "0.1.0"
+signal-hook = "*"
+rustbreak = { version = "2.0.0", features = ["ron_enc"] }
+serde = "1"
+serde_derive = "1"
