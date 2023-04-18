@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate actix_web;
 
-use core::{time};
+use core::time;
+use std::sync::{Arc, Mutex};
 use std::{env, thread, sync::mpsc::{Receiver,SyncSender, sync_channel}, process::exit};
 use librespot::core::authentication::Credentials;
 use librespot::core::config::SessionConfig;
@@ -28,29 +29,34 @@ async fn main() {
     }
 
     let db = db::SpotifyDatabase::new();
-    let session = create_session(&args[1], &args[2]).await;
+    let session = Arc::new(Mutex::new(create_session(&args[1], &args[2]).await));
     let (rest_tx, rest_rx): (SyncSender<PlayerEvent>, Receiver<PlayerEvent>) = sync_channel(100);
+    let (signal_tx, signal_rx): (SyncSender<signals::SignalMessage>, Receiver<signals::SignalMessage>) = sync_channel(100);
 
     // worker threads    
-    signals::start();
+    signals::start(signal_tx.clone());
     rest::start(rest_tx.clone(), session.clone(), db.clone());
     db::populate(args[3].clone(), session.clone(), db.clone());
     
+    eprintln!("waiting for playlist...");
+
     // wait until at least one track in playlist
     while db.len() == 0 {
         thread::sleep(time::Duration::from_millis(10));
     }
 
+    eprintln!("playlist ready, starting playback...");
+
     'track_list: loop {
-        
+
         db.advance_track();
 
         match db.current_track() {
             Err(err) => panic!("{}", err.unwrap()),
             Ok(track) => {
                 eprintln!("Playing: {} - {}", track.track, track.artists.join(", "));
-        
-                let (mut player, mut player_rx) = Player::new(PlayerConfig::default(), session.clone(), Box::new(NoOpVolume), move || {
+
+                let (mut player, mut player_rx) = Player::new(PlayerConfig::default(), session.lock().unwrap().clone(), Box::new(NoOpVolume), move || {
                     audio_backend::find(Some(BACKEND.to_string())).unwrap()(None, AudioFormat::default())
                 });
 
@@ -62,11 +68,22 @@ async fn main() {
                 }
                 
                 loop {
-                    std::thread::sleep(time::Duration::from_millis(100));
+                    thread::sleep(time::Duration::from_millis(100));
                     
                     let rest_event = rest_rx.try_recv();
                     let player_event = player_rx.try_recv();
-        
+                    let signal_event = signal_rx.try_recv();
+
+                    if !signal_event.is_err() {
+                        match signal_event.unwrap() {
+                            signals::SignalMessage::SessionExpired => {
+                                eprintln!("Session expired, creating new session...");
+                                *session.lock().unwrap() = create_session(&args[1], &args[2]).await;
+                                continue 'track_list;
+                            }
+                        }
+                    }
+
                     let mut events: Vec<PlayerEvent> = Vec::new();
         
                     if !rest_event.is_err() {
