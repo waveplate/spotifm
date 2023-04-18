@@ -1,8 +1,10 @@
-# spotify-fm (1.0.6-alpha)
+# spotifm (1.0.7-beta)
 
-spotify-fm streams your spotify music over the internet using icecast2 and spawns a rest api
+spotifm streams your spotify music over the internet using icecast2 and spawns a rest api
 
-> note: spotify-fm only works with spotify premium accounts
+> note: spotifm only works with spotify premium accounts
+
+there is an included irc bot which can be used to control the radio
 
 ## quick start
 ### 1) configuration
@@ -15,18 +17,23 @@ edit `config.env.example` and rename it to `config.env`
 
 `SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
 
-### 2) build spotify-fm
+### 2) build spotifm
 ##### docker
-`docker compose run --rm -u builder -i build-spotify-fm`
+`docker compose run --rm -u builder -i builder`
 ##### native
 `cargo build --release`
 
-### 3) deploy spotify-fm
+### 3) deploy spotifm
 `docker compose up -d --force-recreate streamer`
 
 > icecast2 will become available on port `8000`
 
-> spotify-fm will spawn a rest api on port `9090`
+> spotifm will spawn a rest api on port `9090`
+
+### 4) irc bot (optional)
+make sure to edit `config.env`, then
+
+`docker compose up -d ircbot`
 
 ## rest api endpoints
 ### `GET /np`
