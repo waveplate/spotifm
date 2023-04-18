@@ -1,18 +1,18 @@
 [package]
-name = "spotify-fm"
-version = "1.0.6"
+name = "spotifm"
+version = "1.0.7"
 authors = ["anatolybazarov"]
 license = "GPL"
 description = "stream spotify via icecast"
 keywords = ["spotify"]
-repository = "https://github.com/anatolybazarov/spotify-fm"
+repository = "https://github.com/anatolybazarov/spotifm"
 readme = "README.md"
 edition = "2021"
 
 [workspace]
 
 [[bin]]
-name = "spotify-fm"
+name = "spotifm"
 path = "src/main.rs"
 doc = false
 
