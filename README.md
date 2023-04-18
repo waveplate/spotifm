@@ -19,7 +19,7 @@ edit `config.env.example` and rename it to `config.env`
 
 ### 2) build spotifm
 ##### docker
-`docker compose run --rm -u builder -i builder`
+`docker compose run --rm -u builder builder`
 ##### native
 `cargo build --release`
 
