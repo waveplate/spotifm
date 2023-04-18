@@ -254,6 +254,7 @@ async fn api(session: Data<Session>) -> Result<AuthCodeSpotify, Option<String>> 
 #[actix_rt::main]
 pub async fn start(tx: SyncSender<PlayerEvent>, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
+        let session = session.lock().unwrap().clone();
         match rt::System::new("rest-api").block_on(
             HttpServer::new(move || {
                 let tx = web::Data::new(tx.clone());

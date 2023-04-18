@@ -18,10 +18,9 @@ edit `config.env.example` and rename it to `config.env`
 `SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
 
 ### 2) build spotifm
-##### docker
+
 `docker compose run --rm -u builder builder`
-##### native
-`cargo build --release`
+
 
 ### 3) deploy spotifm
 `docker compose up -d --force-recreate streamer`
