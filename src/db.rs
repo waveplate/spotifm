@@ -193,7 +193,7 @@ impl SpotifyDatabase {
     }
 }
 
-pub fn populate(uri: String, sess: Arc<Mutex<Session>>, db: SpotifyDatabase) {
+pub fn populate(uri: String, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
@@ -202,11 +202,7 @@ pub fn populate(uri: String, sess: Arc<Mutex<Session>>, db: SpotifyDatabase) {
 
             let mut tracks: Vec<SpotifyId> = Vec::new();
 
-            eprintln!("spotify uri: {:?}", spotify_uri);
-
-            let session = sess.lock().unwrap().clone();
-
-            eprintln!("got locke?");
+            let session = session.lock().unwrap().clone();
 
             match *spotify_uri.get(1).unwrap() {
                 "track" => {
