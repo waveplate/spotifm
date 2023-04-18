@@ -1,24 +1,18 @@
-use std::thread;
-use std::sync::{Arc,Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize,Deserialize};
 use librespot::core::session::Session;
 use librespot::core::spotify_id::SpotifyId;
-use librespot::metadata::{Track,Artist,Album,Playlist,Metadata};
+use librespot::metadata::{Album, Artist, Metadata, Playlist, Track};
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
-
-use rustbreak::{
-    deser::Ron,
-    MemoryDatabase,
-    RustbreakError,
-};
-
-use rand::thread_rng;
+use rustbreak::{deser::Ron, MemoryDatabase, RustbreakError};
 use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 #[derive(Clone)]
 pub struct SpotifyDatabase {
-    pub handle: Arc<Mutex<MemoryDatabase::<SpotifyState, Ron>>>
+    pub handle: Arc<Mutex<MemoryDatabase<SpotifyState, Ron>>>,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +34,7 @@ impl SpotifyState {
         return SpotifyState {
             queue: Vec::new(),
             queue_position: 0,
-        }
+        };
     }
 }
 
@@ -48,10 +42,13 @@ impl SpotifyTrack {
     pub fn new(id: String, track: String, artists: Vec<String>) -> SpotifyTrack {
         return SpotifyTrack {
             id: id,
-            rid: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
+            rid: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
             track: track,
             artists: artists,
-        }
+        };
     }
 
     pub fn spotify_id(&self) -> SpotifyId {
@@ -65,27 +62,36 @@ impl SpotifyDatabase {
         if handle.is_err() {
             panic!("could not open in-memory database");
         }
-        return SpotifyDatabase { handle: Arc::new(Mutex::new(handle.unwrap())) };
+        return SpotifyDatabase {
+            handle: Arc::new(Mutex::new(handle.unwrap())),
+        };
     }
 
     pub fn len(&self) -> usize {
         return match self.read() {
             Err(_) => 0,
             Ok(state) => state.queue.len(),
-        }
+        };
     }
 
     pub fn shuffle(&self) -> Result<SpotifyState, String> {
         return match self.read() {
             Err(err) => Err(err.to_string()),
             Ok(mut state) => {
-                let current_id = state.queue.get(state.queue_position).unwrap().id.clone();
+                let current_id = state.queue
+                    .get(state.queue_position)
+                    .unwrap()
+                    .id
+                    .clone();
                 state.queue.shuffle(&mut thread_rng());
-                state.queue_position = state.queue.iter().position(|x| x.id == current_id).unwrap();
+                state.queue_position = state.queue
+                    .iter()
+                    .position(|x| x.id == current_id)
+                    .unwrap();
                 self.write(state.clone());
                 return Ok(state);
             }
-        }
+        };
     }
 
     pub fn add_track(&self, track: SpotifyTrack) -> Result<SpotifyState, String> {
@@ -95,8 +101,8 @@ impl SpotifyDatabase {
                 state.queue.insert(state.queue.len(), track);
                 self.write(state.clone());
                 return Ok(state);
-            },
-        }
+            }
+        };
     }
 
     pub fn queue_track(&self, track: SpotifyTrack) -> Result<SpotifyState, String> {
@@ -104,14 +110,25 @@ impl SpotifyDatabase {
             Err(err) => Err(err.to_string()),
             Ok(mut state) => {
                 let current_id = state.queue.get(state.queue_position).unwrap().id.clone();
-                state.queue = state.queue.iter().filter(|x| x.id != track.id).map(|x| x.clone()).collect();
+                state.queue = state
+                    .queue
+                    .iter()
+                    .filter(|x| x.id != track.id)
+                    .map(|x| x.clone())
+                    .collect();
+
                 state.queue_position = state.queue.iter().position(|x| x.id == current_id).unwrap();
-                let new_pos: usize = if state.queue.len() > 0 { state.queue_position+1 } else { 0 };
+
+                let new_pos: usize = if state.queue.len() > 0 {
+                    state.queue_position + 1
+                } else {
+                    0
+                };
                 state.queue.insert(new_pos, track);
                 self.write(state.clone());
                 return Ok(state);
-            },
-        }
+            }
+        };
     }
 
     pub fn current_track(&self) -> Result<SpotifyTrack, Option<String>> {
@@ -122,43 +139,47 @@ impl SpotifyDatabase {
                     return Err(Some("no tracks in database".to_string()));
                 }
                 return Ok(state.queue.get(state.queue_position).unwrap().clone());
-            },
-        }
+            }
+        };
     }
 
     pub fn next_track(&self) -> Result<SpotifyTrack, String> {
         return match self.read() {
             Err(err) => Err(err.to_string()),
             Ok(mut state) => {
-                if state.queue_position < state.queue.len()-1 {
+                if state.queue_position < state.queue.len() - 1 {
                     state.queue_position += 1;
                 } else {
                     state.queue_position = 0;
                 }
                 return Ok(state.queue.get(state.queue_position).unwrap().clone());
-            },
-        }     
+            }
+        };
     }
 
     pub fn advance_track(&self) {
         return match self.read() {
-            Err(_) => {},
+            Err(_) => {}
             Ok(mut state) => {
-                if state.queue_position < state.queue.len()-1 {
+                if state.queue_position < state.queue.len() - 1 {
                     state.queue_position += 1;
                 } else {
                     state.queue_position = 0;
                 }
                 self.write(state.clone());
-            },
-        }
+            }
+        };
     }
 
     pub fn write(&self, state: SpotifyState) -> () {
-        self.handle.lock().unwrap().write(|db| {
-            db.queue = state.queue;
-            db.queue_position = state.queue_position;
-        }).expect("error writing to in-memory database")
+        self.handle
+            .lock()
+            .unwrap()
+            .write(|db| {
+                db.queue = state.queue;
+                db.queue_position = state.queue_position;
+            })
+            .expect("error writing to in-memory database")
     }
 
     pub fn read(&self) -> Result<SpotifyState, RustbreakError> {
@@ -170,10 +191,9 @@ impl SpotifyDatabase {
             }
         };
     }
-
 }
 
-pub fn populate(uri: String, session: Session, db: SpotifyDatabase) {
+pub fn populate(uri: String, sess: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
@@ -182,44 +202,64 @@ pub fn populate(uri: String, session: Session, db: SpotifyDatabase) {
 
             let mut tracks: Vec<SpotifyId> = Vec::new();
 
+            eprintln!("spotify uri: {:?}", spotify_uri);
+
+            let session = sess.lock().unwrap().clone();
+
+            eprintln!("got locke?");
+
             match *spotify_uri.get(1).unwrap() {
                 "track" => {
                     tracks.push(spotify_id);
-                },
+                }
                 "artist" => {
-                    let list = Artist::get(&session.clone(), spotify_id).await.unwrap();
-                    tracks = list.top_tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
-                },
+                    let list = Artist::get(&session, spotify_id).await.unwrap();
+                    tracks = list
+                        .top_tracks
+                        .iter()
+                        .map(|x| x.clone())
+                        .collect::<Vec<SpotifyId>>();
+                }
                 "album" => {
-                    let list = Album::get(&session.clone(), spotify_id).await.unwrap();
-                    tracks = list.tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
-                },
+                    let list = Album::get(&session, spotify_id).await.unwrap();
+                    tracks = list
+                        .tracks
+                        .iter()
+                        .map(|x| x.clone())
+                        .collect::<Vec<SpotifyId>>();
+                }
                 "playlist" => {
-                    let list = Playlist::get(&session.clone(), spotify_id).await.unwrap();
-                    tracks = list.tracks.iter().map(|x| x.clone()).collect::<Vec<SpotifyId>>();
-                },
+                    let list = Playlist::get(&session, spotify_id).await.unwrap();
+                    tracks = list
+                        .tracks
+                        .iter()
+                        .map(|x| x.clone())
+                        .collect::<Vec<SpotifyId>>();
+                }
                 _ => {
                     panic!("Malformed Spotify URI")
-                },
+                }
             };
 
             for track_id in tracks {
                 let session = session.clone();
-                let mut track = SpotifyTrack::new(track_id.to_base62().unwrap(), "".to_string(), Vec::new());
+                let mut track =
+                    SpotifyTrack::new(track_id.to_base62().unwrap(), "".to_string(), Vec::new());
 
-                match Track::get(&session.clone(), track_id).await {
-                    Err(_) => {},
-                    Ok(track_info) => { 
+                match Track::get(&session, track_id).await {
+                    Err(_) => {}
+                    Ok(track_info) => {
                         track.track = track_info.name;
                         for id in track_info.artists {
-                            match Artist::get(&session.clone(), id).await {
-                                Err(_) => {  },
-                                Ok(artist) => { track.artists.push(artist.name) },
+                            match Artist::get(&session, id).await {
+                                Err(_) => {}
+                                Ok(artist) => track.artists.push(artist.name),
                             }
-                        };
-          
-                        db.add_track(track).expect("error adding track to in-memory database");
-                    },
+                        }
+
+                        db.add_track(track)
+                            .expect("error adding track to in-memory database");
+                    }
                 };
             }
         });
