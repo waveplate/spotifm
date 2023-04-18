@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "axios": "^0.26.1",
+    "irc-framework": "^4.12.1"
+  }
+}
