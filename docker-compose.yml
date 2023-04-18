@@ -2,11 +2,11 @@ version: "3.3"
 
 services:
 
-  build-spotify-fm:
+  builder:
     user: builder
-    build: ./docker/build-spotify-fm
+    build: ./docker/builder
     volumes:
-      - ./:/tmp/spotify-fm
+      - ./:/tmp/spotifm
 
   icecast2:
     image: pltnk/icecast2
@@ -28,8 +28,8 @@ services:
     build: ./docker/streamer
     volumes:
       - type: bind
-        source: ./target/release/spotify-fm
-        target: /usr/local/bin/spotify-fm
+        source: ./target/release/spotifm
+        target: /usr/local/bin/spotifm
       - type: bind
         source: ./etc/darkice.cfg
         target: /etc/darkice.cfg
@@ -43,6 +43,19 @@ services:
       - config.env
     depends_on:
       - icecast2
+    restart: always
+
+  ircbot:
+    user: node
+    build: ./docker/ircbot
+    networks:
+      fm:
+        aliases:
+          - ircbot
+    env_file:
+      - config.env
+    depends_on:
+      - streamer
     restart: always
 
 networks:
