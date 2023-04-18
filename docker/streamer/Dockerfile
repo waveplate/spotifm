@@ -1,6 +1,6 @@
-FROM ubuntu
+FROM ubuntu:20.04
 
-RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl
+RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl sox
 
 RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i /etc/pulse/default.pa \
     && mkdir -p /audio \
@@ -9,6 +9,9 @@ RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i 
     && usermod -aG audio user
 
 COPY entrypoint.sh /
+COPY keepalive.sh /
+RUN chmod +x /entrypoint.sh
+RUN chmod +x /keepalive.sh
 RUN chmod -R +x /usr/local/bin/
 RUN chmod 777 /tmp
 
