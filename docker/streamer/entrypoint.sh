@@ -14,5 +14,5 @@ echo "Starting keepalive ..."
 /keepalive.sh &
 
 echo "Starting spotifm ..."
-spotifm $SPOTIFY_USER $SPOTIFY_PASS "$SPOTIFY_URI" pulseaudio
+spotifm /etc/spotifm.json
 

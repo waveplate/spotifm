@@ -1,6 +1,6 @@
 [package]
 name = "spotifm"
-version = "1.0.7"
+version = "1.1.0"
 authors = ["anatolybazarov"]
 license = "GPL"
 description = "stream spotify via icecast"

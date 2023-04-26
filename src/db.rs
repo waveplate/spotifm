@@ -193,70 +193,72 @@ impl SpotifyDatabase {
     }
 }
 
-pub fn populate(uri: String, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
+pub fn populate(uris: Vec<String>, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
-            let spotify_uri = uri.split(":").collect::<Vec<&str>>();
-            let spotify_id = SpotifyId::from_uri(uri.as_str()).unwrap();
+            for uri in uris {
+                let spotify_uri = uri.split(":").collect::<Vec<&str>>();
+                let spotify_id = SpotifyId::from_uri(uri.as_str()).unwrap();
 
-            let mut tracks: Vec<SpotifyId> = Vec::new();
+                let mut tracks: Vec<SpotifyId> = Vec::new();
 
-            let session = session.lock().unwrap().clone();
+                let session = session.lock().unwrap().clone();
 
-            match *spotify_uri.get(1).unwrap() {
-                "track" => {
-                    tracks.push(spotify_id);
-                }
-                "artist" => {
-                    let list = Artist::get(&session, spotify_id).await.unwrap();
-                    tracks = list
-                        .top_tracks
-                        .iter()
-                        .map(|x| x.clone())
-                        .collect::<Vec<SpotifyId>>();
-                }
-                "album" => {
-                    let list = Album::get(&session, spotify_id).await.unwrap();
-                    tracks = list
-                        .tracks
-                        .iter()
-                        .map(|x| x.clone())
-                        .collect::<Vec<SpotifyId>>();
-                }
-                "playlist" => {
-                    let list = Playlist::get(&session, spotify_id).await.unwrap();
-                    tracks = list
-                        .tracks
-                        .iter()
-                        .map(|x| x.clone())
-                        .collect::<Vec<SpotifyId>>();
-                }
-                _ => {
-                    panic!("Malformed Spotify URI")
-                }
-            };
-
-            for track_id in tracks {
-                let session = session.clone();
-                let mut track =
-                    SpotifyTrack::new(track_id.to_base62().unwrap(), "".to_string(), Vec::new());
-
-                match Track::get(&session, track_id).await {
-                    Err(_) => {}
-                    Ok(track_info) => {
-                        track.track = track_info.name;
-                        for id in track_info.artists {
-                            match Artist::get(&session, id).await {
-                                Err(_) => {}
-                                Ok(artist) => track.artists.push(artist.name),
-                            }
-                        }
-
-                        db.add_track(track)
-                            .expect("error adding track to in-memory database");
+                match *spotify_uri.get(1).unwrap() {
+                    "track" => {
+                        tracks.push(spotify_id);
+                    }
+                    "artist" => {
+                        let list = Artist::get(&session, spotify_id).await.unwrap();
+                        tracks = list
+                            .top_tracks
+                            .iter()
+                            .map(|x| x.clone())
+                            .collect::<Vec<SpotifyId>>();
+                    }
+                    "album" => {
+                        let list = Album::get(&session, spotify_id).await.unwrap();
+                        tracks = list
+                            .tracks
+                            .iter()
+                            .map(|x| x.clone())
+                            .collect::<Vec<SpotifyId>>();
+                    }
+                    "playlist" => {
+                        let list = Playlist::get(&session, spotify_id).await.unwrap();
+                        tracks = list
+                            .tracks
+                            .iter()
+                            .map(|x| x.clone())
+                            .collect::<Vec<SpotifyId>>();
+                    }
+                    _ => {
+                        panic!("Malformed Spotify URI")
                     }
                 };
+
+                for track_id in tracks {
+                    let session = session.clone();
+                    let mut track =
+                        SpotifyTrack::new(track_id.to_base62().unwrap(), "".to_string(), Vec::new());
+
+                    match Track::get(&session, track_id).await {
+                        Err(_) => {}
+                        Ok(track_info) => {
+                            track.track = track_info.name;
+                            for id in track_info.artists {
+                                match Artist::get(&session, id).await {
+                                    Err(_) => {}
+                                    Ok(artist) => track.artists.push(artist.name),
+                                }
+                            }
+
+                            db.add_track(track)
+                                .expect("error adding track to in-memory database");
+                        }
+                    };
+                }
             }
         });
     });

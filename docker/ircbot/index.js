@@ -1,3 +1,4 @@
+const fs = require('fs');
 const IRC = require('irc-framework');
 const axios = require('axios');
 
@@ -5,17 +6,18 @@ var bot = new IRC.Client();
 var apiBase = 'http://streamer:9090';
 var radioBase = 'http://icecast2:8000';
 
+let configData = fs.readFileSync('/etc/ircbot.json');
+let config = JSON.parse(configData);
+
+
 bot.connect({
-	host: process.env.IRC_SERVER,
-	port: process.env.IRC_PORT,
-	secure: true,
-	rejectUnauthorized: false,
-	nick: process.env.IRC_NICK
+	host: config.server,
+	port: config.port,
+	nick: config.nick
 });
 
-bot.on('registered', function(event) {
-    var chans = process.env.IRC_CHANNELS.split(",");
-    chans.forEach(chan => {
+bot.on('registered', function() {
+    config.channels.forEach(chan => {
         bot.join(chan);
     });
 });

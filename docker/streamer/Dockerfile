@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 
-RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl sox
+RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl sox espeak
 
 RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i /etc/pulse/default.pa \
     && mkdir -p /audio \

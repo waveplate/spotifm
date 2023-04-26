@@ -1,4 +1,4 @@
-# spotifm (1.0.7-beta)
+# spotifm (1.1.0-beta)
 
 spotifm streams your spotify music over the internet using icecast2 and spawns a rest api
 
@@ -8,14 +8,58 @@ there is an included irc bot which can be used to control the radio
 
 ## quick start
 ### 1) configuration
-edit `config.env.example` and rename it to `config.env` 
+edit `config.json.example` and rename it to `config.json` 
 
+```
+    "user": "your@email.com",
+    "pass": "yourpass1",
+    "uris": [
+        "spotify:playlist:2WvtFSAkmcABdm3iAvYwXk"
+    ],
+```
 
-`SPOTIFY_USER` is your email
+`user` is your email
 
-`SPOTIFY_PASS` is your password
+`pass` is your password
 
-`SPOTIFY_URI` is the track, album or playlist to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
+`uris` is a list of spotify URIs (track, album or playlist) to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
+
+### 2) track announcments and bumpers
+
+spotifm can announce the name of the song before it plays, as well as periodically play radio station bumpers of your choosing, configured as follows:
+
+```
+    "announce": {
+        "song": {
+            "enable": false,
+            "fmt": "{} by {}",
+            "espeak": {
+                "gap": 10,
+                "speed": 150,
+                "pitch": 50,
+                "voice": "en-us",
+                "amplitude": 100
+            }
+        },
+        "bumper": {
+            "enable": false,
+            "freq": 20,
+            "tags": [
+                "you are listening to my radio"
+            ],
+            "espeak": {
+                "gap": 10,
+                "speed": 120,
+                "pitch": 50,
+                "voice": "en-us",
+                "amplitude": 100
+            }
+        }
+    }
+```
+
+they are disabled by default
+
 
 ### 2) build spotifm
 
@@ -30,7 +74,7 @@ edit `config.env.example` and rename it to `config.env`
 > spotifm will spawn a rest api on port `9090`
 
 ### 4) irc bot (optional)
-make sure to edit `config.env`, then
+make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
 
 `docker compose up -d ircbot`
 

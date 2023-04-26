@@ -33,14 +33,15 @@ services:
       - type: bind
         source: ./etc/darkice.cfg
         target: /etc/darkice.cfg
+      - type: bind
+        source: ./config.json
+        target: /etc/spotifm.json
     networks:
       fm:
         aliases:
           - streamer
     ports:
       - "0.0.0.0:9090:9090"
-    env_file:
-      - config.env
     depends_on:
       - icecast2
     restart: always
@@ -48,12 +49,14 @@ services:
   ircbot:
     user: node
     build: ./docker/ircbot
+    volumes:
+      - type: bind
+        source: ./ircbot.json
+        target: /etc/ircbot.json
     networks:
       fm:
         aliases:
           - ircbot
-    env_file:
-      - config.env
     depends_on:
       - streamer
     restart: always
