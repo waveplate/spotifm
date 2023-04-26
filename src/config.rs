@@ -18,7 +18,6 @@ pub struct SpotifmAnnounceConfig {
 #[derive(Serialize, Clone, Deserialize)]
 pub struct SpotifmSongConfig {
     pub enable: bool,
-    pub fmt: String,
     pub espeak: SpotifmEspeakCfg,
 }
 
