@@ -1,0 +1,8 @@
+{
+    "server": "irc.efnet.org",
+    "port": 6667,
+    "nick": "radio",
+    "channels": [
+        "#radio"
+    ]
+}

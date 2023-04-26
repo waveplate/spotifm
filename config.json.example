@@ -1,0 +1,34 @@
+{
+    "user": "your@email.com",
+    "pass": "yourpass1",
+    "uris": [
+        "spotify:playlist:2WvtFSAkmcABdm3iAvYwXk"
+    ],
+    "announce": {
+        "song": {
+            "enable": false,
+            "fmt": "{} by {}",
+            "espeak": {
+                "gap": 10,
+                "speed": 180,
+                "pitch": 50,
+                "voice": "en-us",
+                "amplitude": 100
+            }
+        },
+        "bumper": {
+            "enable": false,
+            "freq": 5,
+            "tags": [
+                "you are listening to my radio"
+            ],
+            "espeak": {
+                "gap": 5,
+                "speed": 170,
+                "pitch": 1,
+                "voice": "en-us",
+                "amplitude": 60
+            }
+        }
+    }
+}
