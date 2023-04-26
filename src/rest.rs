@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use actix_web::{
     middleware, rt,
-    web::{self, Data, Path},
+    web::{self, Data, Path, Form},
     App, HttpRequest, HttpResponse, HttpServer,
 };
 use std::sync::{Arc, Mutex};
@@ -18,10 +20,125 @@ use std::iter::FromIterator;
 use std::{sync::mpsc::SyncSender, thread};
 
 use crate::db::{SpotifyDatabase, SpotifyTrack};
+use crate::config::{SpotifmConfig};
 
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 const SCOPES: &str =
     "streaming,user-read-playback-state,user-modify-playback-state,user-read-currently-playing";
+
+#[derive(Serialize, Deserialize)]
+pub struct AnnounceBumper {
+    pub enable: Option<bool>,
+    pub tag: Option<String>,
+    pub freq: Option<usize>,
+    pub speed: Option<u32>,
+    pub amplitude: Option<u32>,
+    pub voice: Option<String>,
+    pub pitch: Option<u32>,
+    pub gap: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AnnounceSong {
+    pub enable: Option<bool>,
+    pub speed: Option<u32>,
+    pub amplitude: Option<u32>,
+    pub voice: Option<String>,
+    pub pitch: Option<u32>,
+    pub gap: Option<u32>,
+}
+
+#[delete("/announce/bumper/tags")]
+pub async fn delete_announce_bumper_tags(
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    config.lock().unwrap().announce.bumper.clear_tags();
+    return HttpResponse::Ok().json(config.lock().unwrap().announce.bumper.clone());
+}
+
+#[post("/announce/song")]
+pub async fn edit_announce_song(
+    form: Form<AnnounceSong>,
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    if form.enable.is_some() {
+        config.lock().unwrap().announce.song.enable = form.enable.unwrap();
+    }
+
+    if form.speed.is_some() {
+        config.lock().unwrap().announce.song.espeak.speed = form.speed.unwrap();
+    }
+
+    if form.amplitude.is_some() {
+        config.lock().unwrap().announce.song.espeak.amplitude = form.amplitude.unwrap();
+    }
+
+    if form.voice.is_some() {
+        config.lock().unwrap().announce.song.espeak.voice = form.voice.clone().unwrap();
+    }
+
+    if form.pitch.is_some() {
+        config.lock().unwrap().announce.song.espeak.pitch = form.pitch.unwrap();
+    }
+
+    if form.gap.is_some() {
+        config.lock().unwrap().announce.song.espeak.gap = form.gap.unwrap();
+    }    
+
+    return HttpResponse::Ok().json(config.lock().unwrap().announce.song.clone());
+}
+
+#[post("/announce/bumper")]
+pub async fn edit_announce_bumper(
+    form: Form<AnnounceBumper>,
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    if form.enable.is_some() {
+        config.lock().unwrap().announce.bumper.enable = form.enable.unwrap();
+    }
+
+    if form.tag.is_some() {
+        config.lock().unwrap().announce.bumper.add_tag(form.tag.clone().unwrap());
+    }
+
+    if form.freq.is_some() {
+        config.lock().unwrap().announce.bumper.freq = form.freq.unwrap();
+    }
+
+    if form.speed.is_some() {
+        config.lock().unwrap().announce.bumper.espeak.speed = form.speed.unwrap();
+    }
+
+    if form.amplitude.is_some() {
+        config.lock().unwrap().announce.bumper.espeak.amplitude = form.amplitude.unwrap();
+    }
+
+    if form.voice.is_some() {
+        config.lock().unwrap().announce.bumper.espeak.voice = form.voice.clone().unwrap();
+    }
+
+    if form.pitch.is_some() {
+        config.lock().unwrap().announce.bumper.espeak.pitch = form.pitch.unwrap();
+    }
+
+    if form.gap.is_some() {
+        config.lock().unwrap().announce.bumper.espeak.gap = form.gap.unwrap();
+    }    
+
+    return HttpResponse::Ok().json(config.lock().unwrap().announce.bumper.clone());
+}
+
+#[get("/announce/{type}")]
+pub async fn get_announce(
+    path: Path<String>,
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    match path.0.as_str() {
+        "bumper" => return HttpResponse::Ok().json(config.lock().unwrap().clone().announce.bumper),
+        "song" => return HttpResponse::Ok().json(config.lock().unwrap().clone().announce.song),
+        _ => return HttpResponse::NotFound().finish(),
+    }
+}
 
 #[get("/search/{type}/{num}")]
 pub async fn search(
@@ -252,17 +369,19 @@ async fn api(session: Data<Session>) -> Result<AuthCodeSpotify, Option<String>> 
 }
 
 #[actix_rt::main]
-pub async fn start(tx: SyncSender<PlayerEvent>, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
+pub async fn start(tx: SyncSender<PlayerEvent>, config: Arc<Mutex<SpotifmConfig>>, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
         let session = session.lock().unwrap().clone();
         match rt::System::new("rest-api").block_on(
             HttpServer::new(move || {
                 let tx = web::Data::new(tx.clone());
+                let config = web::Data::new(config.clone());
                 let session = web::Data::new(session.clone());
                 let db = web::Data::new(db.clone());
                 App::new()
                     .wrap(middleware::Logger::default())
                     .app_data(tx)
+                    .app_data(config)
                     .app_data(session)
                     .app_data(db)
                     .service(np)
@@ -272,6 +391,11 @@ pub async fn start(tx: SyncSender<PlayerEvent>, session: Arc<Mutex<Session>>, db
                     .service(search)
                     .service(show_playlist)
                     .service(shuffle)
+                    .service(get_announce)
+                    .service(edit_announce_song)
+                    .service(edit_announce_bumper)
+                    .service(delete_announce_bumper_tags)
+
             })
             .bind("0.0.0.0:9090")
             .unwrap()
