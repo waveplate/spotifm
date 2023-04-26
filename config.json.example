@@ -7,7 +7,6 @@
     "announce": {
         "song": {
             "enable": false,
-            "fmt": "{} by {}",
             "espeak": {
                 "gap": 10,
                 "speed": 180,
