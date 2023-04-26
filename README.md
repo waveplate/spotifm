@@ -32,7 +32,6 @@ spotifm can announce the name of the song before it plays, as well as periodical
     "announce": {
         "song": {
             "enable": false,
-            "fmt": "{} by {}",
             "espeak": {
                 "gap": 10,
                 "speed": 150,
@@ -60,10 +59,13 @@ spotifm can announce the name of the song before it plays, as well as periodical
 
 they are disabled by default
 
+`freq` is how often to play a bumper
+
+see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amplitude`
 
 ### 2) build spotifm
 
-`docker compose run --rm -u builder builder`
+`docker compose run builder`
 
 
 ### 3) deploy spotifm
@@ -138,3 +140,49 @@ returns (example):
 ]
 ```
 or `{ "error": "<error msg>"}`
+
+### `POST /announce/bumper`
+takes post fields `enable`, `tag`, `freq`, `speed`, `amplitude`, `pitch`, `gap`, `voice` and updates the running instance of your config
+
+if `tag` is supplied, it is appended to your current tags
+
+### `DELETE /announce/bumper/tags`
+clears out your tags
+
+### `GET /announce/bumper`
+all above return (example):
+```
+{
+    "idx": 1,
+    "enable": true,
+    "tags": [
+        ...
+    ],
+    "freq": 5,
+    "espeak": {
+        "speed": 160,
+        "amplitude": 60,
+        "pitch": 1,
+        "gap": 5,
+        "voice": "en-us"
+    }
+}
+```
+
+### `POST /announce/song`
+takes post fields `enable`, `speed`, `amplitude`, `pitch`, `gap`, `voice` and updates running instance of your config
+
+### `GET /announce/song`
+all above return (example):
+```
+{
+    "enable": false,
+    "espeak": {
+        "speed": 170,
+        "amplitude": 100,
+        "pitch": 50,
+        "gap": 10,
+        "voice": "en-us"
+    }
+}
+```
