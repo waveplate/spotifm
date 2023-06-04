@@ -61,5 +61,20 @@ services:
       - streamer
     restart: always
 
+  discordbot:
+    user: node
+    build: ./docker/discordbot
+    volumes:
+      - type: bind
+        source: ./discordbot.json
+        target: /etc/discordbot.json
+    networks:
+      fm:
+        aliases:
+          - discordbot
+    depends_on:
+      - streamer
+    restart: always
+
 networks:
   fm:
