@@ -1,7 +1,7 @@
 use std::process::{Command};
 use std::sync::{Arc, Mutex};
 use crate::db::{SpotifyTrack};
-use crate::config::{SpotifmConfig, SpotifmEspeakCfg};
+use crate::config::{SpotifmConfig, SpotifmEspeakCfg, SpotifmElevenLabsCfg};
 
 pub fn announcements(_config: Arc<Mutex<SpotifmConfig>>, track: &SpotifyTrack, tracks_played: usize) {
     let mut config = _config.lock().unwrap();
@@ -22,8 +22,9 @@ pub fn announcements(_config: Arc<Mutex<SpotifmConfig>>, track: &SpotifyTrack, t
     }
 }
 
-fn espeak(text: String, config: SpotifmEspeakCfg){
+pub fn espeak(text: String, config: SpotifmEspeakCfg){
     Command::new("espeak")
+        .env("PULSE_SINK", "spotifm_announce")
         .arg("-s")
         .arg(config.speed.to_string())
         .arg("-a")
@@ -35,6 +36,23 @@ fn espeak(text: String, config: SpotifmEspeakCfg){
         .arg("-v")
         .arg(config.voice.to_string())
         .arg(text)
+        .output()
+        .unwrap();
+}
+
+pub fn get_elevenlabs_tts(text: &str, config: SpotifmElevenLabsCfg) {
+    Command::new("/elevenlabs.sh")
+        .arg(config.key)
+        .arg(config.voice)
+        .arg(text)
+        .output()
+        .unwrap();
+}
+
+pub fn play_elevenlabs(){
+    Command::new("mplayer")
+        .env("PULSE_SINK", "spotifm_announce")
+        .arg("/tmp/output.mp3")
         .output()
         .unwrap();
 }
