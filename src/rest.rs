@@ -21,6 +21,8 @@ use std::{sync::mpsc::SyncSender, thread};
 
 use crate::db::{SpotifyDatabase, SpotifyTrack};
 use crate::config::{SpotifmConfig};
+use crate::announce::{espeak, get_elevenlabs_tts, play_elevenlabs};
+use crate::mixer::{volume_fade, announce_volume};
 
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 const SCOPES: &str =
@@ -46,6 +48,52 @@ pub struct AnnounceSong {
     pub voice: Option<String>,
     pub pitch: Option<u32>,
     pub gap: Option<u32>,
+}
+
+#[get("/mixer/music/fade")]
+pub async fn set_mixer_music_fade(
+    req: HttpRequest
+) -> HttpResponse {
+    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
+    let start = query.get("start").unwrap().parse::<u32>().unwrap();
+    let end = query.get("end").unwrap().parse::<u32>().unwrap();
+    let duration = query.get("duration").unwrap().parse::<u64>().unwrap();
+    volume_fade(start, end, duration);
+    return HttpResponse::Ok().json(HashMap::from([("done", true)]));
+}
+
+#[get("/mixer/announce/volume")]
+pub async fn set_mixer_announce_volume(
+    req: HttpRequest
+) -> HttpResponse {
+    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
+    announce_volume(query.get("vol").unwrap().clone());
+    return HttpResponse::Ok().json(HashMap::from([("volume", query.get("vol").unwrap())]));
+}
+
+#[get("/elevenlabs")]
+pub async fn do_elevenlabs_say(
+    req: HttpRequest,
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
+
+    let text = query.get("text").unwrap().clone();
+
+    get_elevenlabs_tts(text.as_str(), config.lock().unwrap().elevenlabs.clone());
+    play_elevenlabs();
+
+    return HttpResponse::Ok().json(HashMap::from([("text", text)]));
+}
+
+#[get("/espeak")]
+pub async fn do_announce_say(
+    req: HttpRequest,
+    config: Data<Arc<Mutex<SpotifmConfig>>>,
+) -> HttpResponse {
+    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
+    espeak(query.get("text").unwrap().clone(), config.lock().unwrap().announce.song.espeak.clone());
+    return HttpResponse::Ok().json(HashMap::from([("text", query.get("text").unwrap())]));
 }
 
 #[delete("/announce/bumper/tags")]
@@ -144,7 +192,7 @@ pub async fn get_announce(
 pub async fn search(
     req: HttpRequest,
     path: Path<(String, u32)>,
-    session: Data<Session>,
+    session: Data<Arc<Mutex<Session>>>,
 ) -> HttpResponse {
     let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
     let search_type = match path.0 .0.to_string().to_lowercase().as_str() {
@@ -192,6 +240,22 @@ pub async fn np(db: Data<SpotifyDatabase>) -> HttpResponse {
     };
 }
 
+#[get("/prev")]
+pub async fn prev_track(db: Data<SpotifyDatabase>) -> HttpResponse {
+    return match db.prev_track() {
+        Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
+        Ok(track) => HttpResponse::Ok().json(track),
+    };
+}
+
+#[get("/next")]
+pub async fn next_track(db: Data<SpotifyDatabase>) -> HttpResponse {
+    return match db.next_track() {
+        Err(err) => HttpResponse::Ok().json(HashMap::from([("error", err.to_string())])),
+        Ok(track) => HttpResponse::Ok().json(track),
+    };
+}
+
 #[get("/skip")]
 pub async fn skip(data: Data<SyncSender<PlayerEvent>>, db: Data<SpotifyDatabase>) -> HttpResponse {
     let next_playing = db.next_track().unwrap();
@@ -218,7 +282,7 @@ pub async fn shuffle(db: Data<SpotifyDatabase>) -> HttpResponse {
 pub async fn queue(
     path: Path<String>,
     data: Data<SyncSender<PlayerEvent>>,
-    session: Data<Session>,
+    session: Data<Arc<Mutex<Session>>>,
     db: Data<SpotifyDatabase>,
 ) -> HttpResponse {
     let now_playing = db.current_track().unwrap();
@@ -276,7 +340,7 @@ pub async fn queue(
 pub async fn play(
     path: Path<String>,
     data: Data<SyncSender<PlayerEvent>>,
-    session: Data<Session>,
+    session: Data<Arc<Mutex<Session>>>,
     db: Data<SpotifyDatabase>,
 ) -> HttpResponse {
     let now_playing = db.current_track().unwrap();
@@ -345,8 +409,8 @@ pub async fn show_playlist(db: Data<SpotifyDatabase>) -> HttpResponse {
     };
 }
 
-async fn api(session: Data<Session>) -> Result<AuthCodeSpotify, Option<String>> {
-    return match keymaster::get_token(&session.clone(), CLIENT_ID, SCOPES).await {
+async fn api(session: Data<Arc<Mutex<Session>>>) -> Result<AuthCodeSpotify, Option<String>> {
+    return match keymaster::get_token(&session.lock().unwrap(), CLIENT_ID, SCOPES).await {
         Err(_) => Err(Some("could not get token".to_string())),
         Ok(search_token) => {
             let token = rspotify::Token {
@@ -371,7 +435,7 @@ async fn api(session: Data<Session>) -> Result<AuthCodeSpotify, Option<String>> 
 #[actix_rt::main]
 pub async fn start(tx: SyncSender<PlayerEvent>, config: Arc<Mutex<SpotifmConfig>>, session: Arc<Mutex<Session>>, db: SpotifyDatabase) {
     thread::spawn(move || {
-        let session = session.lock().unwrap().clone();
+        //let session = session.lock().unwrap().clone();
         match rt::System::new("rest-api").block_on(
             HttpServer::new(move || {
                 let tx = web::Data::new(tx.clone());
@@ -385,17 +449,22 @@ pub async fn start(tx: SyncSender<PlayerEvent>, config: Arc<Mutex<SpotifmConfig>
                     .app_data(session)
                     .app_data(db)
                     .service(np)
+                    .service(prev_track)
+                    .service(next_track)
                     .service(skip)
                     .service(queue)
                     .service(play)
                     .service(search)
                     .service(show_playlist)
                     .service(shuffle)
+                    .service(set_mixer_music_fade)
+                    .service(set_mixer_announce_volume)
                     .service(get_announce)
+                    .service(do_announce_say)
+                    .service(do_elevenlabs_say)
                     .service(edit_announce_song)
                     .service(edit_announce_bumper)
                     .service(delete_announce_bumper_tags)
-
             })
             .bind("0.0.0.0:9090")
             .unwrap()
