@@ -7,6 +7,7 @@ pub struct SpotifmConfig {
     pub pass: String,
     pub uris: Vec<String>,
     pub announce:  SpotifmAnnounceConfig,
+    pub elevenlabs: SpotifmElevenLabsCfg,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -28,6 +29,12 @@ pub struct SpotifmBumperConfig {
     pub tags: Vec<String>,
     pub freq: usize,
     pub espeak: SpotifmEspeakCfg,
+}
+
+#[derive(Serialize, Clone, Deserialize)]
+pub struct SpotifmElevenLabsCfg {
+    pub key: String,
+    pub voice: String,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
