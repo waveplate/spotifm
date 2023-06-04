@@ -1,4 +1,4 @@
-# spotifm (1.1.0-beta)
+# spotifm (1.3.0-beta)
 
 spotifm streams your spotify music over the internet using icecast2 and spawns a rest api
 
@@ -82,6 +82,8 @@ make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
 
 ## rest api endpoints
 ### `GET /np`
+### `GET /prev`
+### `GET /next`
 ### `GET /skip`
 ### `GET /queue/<TRACK-ID>`
 ### `GET /play/<TRACK-ID>`
@@ -184,5 +186,42 @@ all above return (example):
         "gap": 10,
         "voice": "en-us"
     }
+}
+```
+
+### `GET /mixer/music/fade?start=<START>&end=<END>&duration=<DURATION>`
+`START` is the volume, in percent, to start the fade at
+`END` is the volume, in percent, to end the fade at
+`DURATION` is the duration, in milliseconds, over which to conduct the fade at
+
+it returns:
+```
+{
+    "done": true
+}
+```
+
+### `GET /mixer/announce/volume?vol=<VOLUME>`
+`VOLUME` is the volume to set the announcements to, examples of acceptable values are
+
+`120%` - will set the volume to 120%
+`+10%` - this will increase the volume by 10%
+`140` - this will set the volume to 140dB
+
+it returns:
+```
+{
+    "volume": <VOLUME>
+}
+```
+
+### `GET /espeak?text=<TEXT>`
+### `GET /elevenlabs?text=<TEXT>`
+this will use espeak, or the elevenlabs API to speak your `TEXT`
+
+it will return:
+```
+{
+    "text": <TEXT>
 }
 ```
