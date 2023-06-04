@@ -4,7 +4,9 @@ spotifm streams your spotify music over the internet using icecast2 and spawns a
 
 > note: spotifm only works with spotify premium accounts
 
-there is an included irc bot which can be used to control the radio
+there is an included:
+* irc bot which can be used to control the radio through irc commands
+* discord bot which streams the radio to a voice channel, and can be controlled through text channels
 
 ## quick start
 ### 1) configuration
