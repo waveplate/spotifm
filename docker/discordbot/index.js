@@ -72,6 +72,10 @@ client.on('messageCreate', message => {
                 });
             }
         });
+    } else if(['shuffle'].indexOf(cmd) > -1){
+        axios.get(`${apiBase}/shuffle`).then(() => {
+            message.channel.send("*playlist shuffled*");
+        });
     }
 });
 
