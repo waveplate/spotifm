@@ -77,6 +77,7 @@ see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amp
 
 `docker compose run builder`
 
+> note: depending on your docker version, you may need to use `docker-compose` instead of `docker compose`
 
 ### 3) deploy spotifm
 `docker compose up -d --force-recreate streamer`
@@ -89,6 +90,11 @@ see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amp
 make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
 
 `docker compose up -d ircbot`
+
+### 5) discord bot (optional)
+make sure to edit `discordbot.json.example` and rename it to `discordbot.json`, then
+
+`docker compose up -d discordbot`
 
 ## rest api endpoints
 ### `GET /np`
