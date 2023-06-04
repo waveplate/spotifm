@@ -131,6 +131,20 @@ impl SpotifyDatabase {
         };
     }
 
+    pub fn prev_track(&self) -> Result<SpotifyTrack, String> {
+        return match self.read() {
+            Err(err) => Err(err.to_string()),
+            Ok(mut state) => {
+                if state.queue_position == 0 {
+                    state.queue_position = state.queue.len() - 1;
+                } else {
+                    state.queue_position -= 1;
+                }
+                return Ok(state.queue.get(state.queue_position).unwrap().clone());
+            }
+        };
+    }
+
     pub fn current_track(&self) -> Result<SpotifyTrack, Option<String>> {
         return match self.read() {
             Err(err) => Err(Some(err.to_string())),
