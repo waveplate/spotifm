@@ -22,7 +22,7 @@ client.on('ready', () => {
     console.log(`Bot is ready!`);
 
     channel = client.channels.cache.get(discordOpts.voiceChannelId);
-            
+
     const connection = joinVoiceChannel({
         channelId: channel.id,
         guildId: channel.guild.id,
@@ -33,9 +33,9 @@ client.on('ready', () => {
         entersState(connection, VoiceConnectionStatus.Ready, 20e3).then(() => {
             const player = createAudioPlayer();
             const resource = createAudioResource('http://icecast2:8000/listen');
-            
+
             player.play(resource);
-  
+
             connection.subscribe(player);
         });
     } catch (error) {
