@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 
-RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl sox espeak
+RUN apt-get update && apt-get -y install pulseaudio alsa-utils darkice curl sox espeak mplayer
 
 RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i /etc/pulse/default.pa \
     && mkdir -p /audio \
@@ -10,6 +10,8 @@ RUN sed "s/^load-module module-console-kit/#load-module module-console-kit/" -i 
 
 COPY entrypoint.sh /
 COPY keepalive.sh /
+COPY elevenlabs.sh /
+RUN chmod +x /elevenlabs.sh
 RUN chmod +x /entrypoint.sh
 RUN chmod +x /keepalive.sh
 RUN chmod -R +x /usr/local/bin/
