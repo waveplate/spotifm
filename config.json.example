@@ -4,6 +4,10 @@
     "uris": [
         "spotify:playlist:2WvtFSAkmcABdm3iAvYwXk"
     ],
+    "elevenlabs": {
+        "key": "",
+        "voice": ""
+    },
     "announce": {
         "song": {
             "enable": false,
