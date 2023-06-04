@@ -25,11 +25,16 @@ edit `config.json.example` and rename it to `config.json`
 ```
 
 `user` is your email
-`pass` is your password
-`uris` is a list of spotify URIs (track, album or playlist) to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
-`elevenlabs` contains your elevenlabs API key, and the voice ID of the voice you want to use -- this is optional
 
-### 2) track announcments and bumpers
+`pass` is your password
+
+`uris` is a list of spotify URIs (track, album or playlist) to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
+
+optionally:
+
+`elevenlabs` contains your elevenlabs API key, and the voice ID of the voice you want to use for TTS
+
+### 2) track announcments and bumpers (optional)
 
 spotifm can announce the name of the song before it plays, as well as periodically play radio station bumpers of your choosing, configured as follows:
 
@@ -196,7 +201,9 @@ all above return (example):
 
 ### `GET /mixer/music/fade?start=<START>&end=<END>&duration=<DURATION>`
 `START` is the volume, in percent, to start the fade at
+
 `END` is the volume, in percent, to end the fade at
+
 `DURATION` is the duration, in milliseconds, over which to conduct the fade at
 
 it returns:
@@ -210,7 +217,9 @@ it returns:
 `VOLUME` is the volume to set the announcements to, examples of acceptable values are
 
 `120%` - will set the volume to 120%
+
 `+10%` - this will increase the volume by 10%
+
 `140` - this will set the volume to 140dB
 
 it returns:
