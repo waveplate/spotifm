@@ -16,13 +16,16 @@ edit `config.json.example` and rename it to `config.json`
     "uris": [
         "spotify:playlist:2WvtFSAkmcABdm3iAvYwXk"
     ],
+    "elevenlabs": {
+        "key": "",
+        "voice": ""
+    }
 ```
 
 `user` is your email
-
 `pass` is your password
-
 `uris` is a list of spotify URIs (track, album or playlist) to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
+`elevenlabs` contains your elevenlabs API key, and the voice ID of the voice you want to use -- this is optional
 
 ### 2) track announcments and bumpers
 
