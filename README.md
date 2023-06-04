@@ -8,6 +8,13 @@ there is an included:
 * irc bot which can be used to control the radio through irc commands
 * discord bot which streams the radio to a voice channel, and can be controlled through text channels
 
+the commands for both the irc and discord bot:
+* `!np` `!prev` `!next` - get the now playing, previous, and next track in the playlist
+* `!play <query>` - play this song on the stream immediately
+* `!queue <query>` - queue this song to be played next
+* `!search <query>` - get top 5 search results for your query
+* `!shuffle` - shuffle the playlist
+
 ## quick start
 ### 1) configuration
 edit `config.json.example` and rename it to `config.json` 
@@ -82,9 +89,9 @@ see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amp
 ### 3) deploy spotifm
 `docker compose up -d --force-recreate streamer`
 
-> icecast2 will become available on port `8000`
+> icecast2 will become available on port `8000`, listen to your radio at `http://<your-ip-address>:8000/listen`
 
-> spotifm will spawn a rest api on port `9090`
+> spotifm will spawn a rest api on port `9090`, issue api calls at `http://<your-ip-address>:9090/...`
 
 ### 4) irc bot (optional)
 make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
