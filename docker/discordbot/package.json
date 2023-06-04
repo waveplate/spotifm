@@ -1,0 +1,17 @@
+{
+  "name": "spotifm-discord-bot",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "anatolybazarov",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "@discordjs/voice": "^0.16.0",
+    "axios": "^1.4.0",
+    "discord.js": "^14.11.0",
+    "sodium": "^3.0.2"
+  }
+}
