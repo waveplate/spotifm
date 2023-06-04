@@ -9,7 +9,7 @@ use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
 use librespot::playback::audio_backend;
 use librespot::playback::config::{AudioFormat, PlayerConfig};
-use librespot::playback::mixer::NoOpVolume;
+use librespot::playback::mixer::{NoOpVolume};
 use librespot::playback::player::{Player,PlayerEvent};
 
 mod db;
@@ -17,6 +17,7 @@ mod rest;
 mod signals;
 mod config;
 mod announce;
+mod mixer;
 
 use config::SpotifmConfig;
 
