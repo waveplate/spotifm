@@ -213,11 +213,11 @@ all above return (example):
 ```
 
 ### `GET /mixer/music/fade?start=<START>&end=<END>&duration=<DURATION>`
-`START` is the volume, in percent, to start the fade at
+`START` is the volume percentage to start the fade at, e.g. `100`
 
-`END` is the volume, in percent, to end the fade at
+`END` is the volume percentage to end the fade at, e.g. `50`
 
-`DURATION` is the duration, in milliseconds, over which to conduct the fade at
+`DURATION` is the duration, in milliseconds, over which to conduct the fade, e.g. `3000`
 
 it returns:
 ```
