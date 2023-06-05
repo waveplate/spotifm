@@ -80,25 +80,25 @@ they are disabled by default
 
 see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amplitude`
 
-### 2) build spotifm
+### 3) build spotifm
 
 `docker compose run builder`
 
 > note: depending on your docker version, you may need to use `docker-compose` instead of `docker compose`
 
-### 3) deploy spotifm
+### 4) deploy spotifm
 `docker compose up -d --force-recreate streamer`
 
 > icecast2 will become available on port `8000`, listen to your radio at `http://<your-ip-address>:8000/listen`
 
 > spotifm will spawn a rest api on port `9090`, issue api calls at `http://<your-ip-address>:9090/...`
 
-### 4) irc bot (optional)
+### 5) irc bot (optional)
 make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
 
 `docker compose up -d ircbot`
 
-### 5) discord bot (optional)
+### 6) discord bot (optional)
 make sure to edit `discordbot.json.example` and rename it to `discordbot.json`, then
 
 `docker compose up -d discordbot`
