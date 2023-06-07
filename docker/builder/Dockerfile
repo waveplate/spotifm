@@ -1,4 +1,4 @@
-FROM rust:1.62
+FROM rust:latest
 
 RUN apt update && apt install -y libasound2-dev pkg-config libpulse-dev build-essential
 
