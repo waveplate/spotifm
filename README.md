@@ -1,4 +1,4 @@
-# spotifm (1.3.0)
+# spotifm (2.0.0)
 
 spotifm streams your spotify music over the internet using icecast2 and spawns a rest api
 

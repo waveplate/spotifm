@@ -31,8 +31,8 @@ services:
         source: ./target/release/spotifm
         target: /usr/local/bin/spotifm
       - type: bind
-        source: ./etc/darkice.cfg
-        target: /etc/darkice.cfg
+        source: ./etc/pulse.liq
+        target: /etc/liquidsoap/pulse.liq
       - type: bind
         source: ./config.json
         target: /etc/spotifm.json

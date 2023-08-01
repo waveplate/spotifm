@@ -1,11 +1,11 @@
 [package]
 name = "spotifm"
-version = "1.3.0"
-authors = ["anatolybazarov"]
+version = "2.0.0"
+authors = ["waveplate"]
 license = "GPL"
 description = "stream spotify via icecast"
 keywords = ["spotify"]
-repository = "https://github.com/anatolybazarov/spotifm"
+repository = "https://github.com/waveplate/spotifm"
 readme = "README.md"
 edition = "2021"
 
