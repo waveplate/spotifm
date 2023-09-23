@@ -9,17 +9,22 @@ var radioBase = 'http://icecast2:8000';
 let configData = fs.readFileSync('/etc/ircbot.json');
 let config = JSON.parse(configData);
 
-
 bot.connect({
 	host: config.server,
 	port: config.port,
-	nick: config.nick
+	nick: config.nick,
+	ssl: config.port == 6697 ? true : false,
+	rejectUnauthorized: false
 });
 
 bot.on('registered', function() {
     config.channels.forEach(chan => {
         bot.join(chan);
     });
+});
+
+bot.on('debug', function(event) {
+    console.log(event);
 });
 
 bot.on('message', function(event) {
@@ -35,12 +40,11 @@ bot.on('message', function(event) {
         });
     }
 
-   if (event.message.match(/^!skip/)) {
+    if (event.message.match(/^!skip/)) {
         spotifyApi('/skip', event, data => {
             return _nowPlaying(data, event);
         });
     }
-
 
     if (event.message.match(/^!np/)) {
         return _nowPlaying(false, event);
@@ -82,6 +86,8 @@ function _nowPlaying(data, event){
         if(data)
             return event.reply(makeSpotifyMessage(data, listeners));
         spotifyApi("/np", event, data => {
+            console.log("sending reply with");
+            console.log(data);
             event.reply(makeSpotifyMessage(data, listeners));
         });
     });

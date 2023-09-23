@@ -1,6 +1,6 @@
 # Define the PulseAudio input
 input = input.pulseaudio(
-    device="spotifm_master.monitor"
+    device="auto_null.monitor"
 )
 
 # Define the Icecast2 output

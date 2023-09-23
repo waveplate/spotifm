@@ -20,9 +20,8 @@ use std::iter::FromIterator;
 use std::{sync::mpsc::SyncSender, thread};
 
 use crate::db::{SpotifyDatabase, SpotifyTrack};
-use crate::config::{SpotifmConfig};
+use crate::config::SpotifmConfig;
 use crate::announce::{espeak, get_elevenlabs_tts, play_elevenlabs};
-use crate::mixer::{volume_fade, announce_volume};
 
 const CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 const SCOPES: &str =
@@ -50,27 +49,6 @@ pub struct AnnounceSong {
     pub gap: Option<u32>,
 }
 
-#[get("/mixer/music/fade")]
-pub async fn set_mixer_music_fade(
-    req: HttpRequest
-) -> HttpResponse {
-    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
-    let start = query.get("start").unwrap().parse::<u32>().unwrap();
-    let end = query.get("end").unwrap().parse::<u32>().unwrap();
-    let duration = query.get("duration").unwrap().parse::<u64>().unwrap();
-    volume_fade(start, end, duration);
-    return HttpResponse::Ok().json(HashMap::from([("done", true)]));
-}
-
-#[get("/mixer/announce/volume")]
-pub async fn set_mixer_announce_volume(
-    req: HttpRequest
-) -> HttpResponse {
-    let query = web::Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
-    announce_volume(query.get("vol").unwrap().clone());
-    return HttpResponse::Ok().json(HashMap::from([("volume", query.get("vol").unwrap())]));
-}
-
 #[get("/elevenlabs")]
 pub async fn do_elevenlabs_say(
     req: HttpRequest,
@@ -87,7 +65,7 @@ pub async fn do_elevenlabs_say(
 }
 
 #[get("/espeak")]
-pub async fn do_announce_say(
+pub async fn do_espeak_say(
     req: HttpRequest,
     config: Data<Arc<Mutex<SpotifmConfig>>>,
 ) -> HttpResponse {
@@ -457,10 +435,8 @@ pub async fn start(tx: SyncSender<PlayerEvent>, config: Arc<Mutex<SpotifmConfig>
                     .service(search)
                     .service(show_playlist)
                     .service(shuffle)
-                    .service(set_mixer_music_fade)
-                    .service(set_mixer_announce_volume)
                     .service(get_announce)
-                    .service(do_announce_say)
+                    .service(do_espeak_say)
                     .service(do_elevenlabs_say)
                     .service(edit_announce_song)
                     .service(edit_announce_bumper)

@@ -9,7 +9,7 @@ use librespot::core::config::SessionConfig;
 use librespot::core::session::Session;
 use librespot::playback::audio_backend;
 use librespot::playback::config::{AudioFormat, PlayerConfig};
-use librespot::playback::mixer::{NoOpVolume};
+use librespot::playback::mixer::NoOpVolume;
 use librespot::playback::player::{Player,PlayerEvent};
 
 mod db;
@@ -17,7 +17,6 @@ mod rest;
 mod signals;
 mod config;
 mod announce;
-mod mixer;
 
 use config::SpotifmConfig;
 
@@ -28,7 +27,6 @@ async fn main() {
 
     let mut tracks_played = 0;
 
-    // get the first argument
     let args: Vec<String> = std::env::args().collect();
 
     let db = db::SpotifyDatabase::new();
@@ -42,18 +40,16 @@ async fn main() {
     rest::start(rest_tx.clone(), config.clone(), session.clone(), db.clone());
     db::populate(config.lock().unwrap().uris.clone(), session.clone(), db.clone());
     
-    eprintln!("waiting for playlist...");
+    eprintln!("Waiting for playlist...");
 
     // wait until at least one track in playlist
     while db.len() == 0 {
         thread::sleep(time::Duration::from_millis(10));
     }
 
-    eprintln!("playlist ready, starting playback...");
+    eprintln!("Playlist partially loaded, starting playback...");
 
     'track_list: loop {
-
-        tracks_played += 1;
 
         db.advance_track();
 
@@ -73,7 +69,7 @@ async fn main() {
                 player.load(track.spotify_id(), true, 0);
         
                 match db.next_track() {
-                    Err(err) => eprintln!("preload error: {}", err),
+                    Err(err) => eprintln!("Preload error: {}", err),
                     Ok(track) => player.preload(track.spotify_id()),
                 }
                 
@@ -133,7 +129,7 @@ pub async fn create_session(config: &Arc<Mutex<SpotifmConfig>>) -> Session {
     let credentials = Credentials::with_password(config.user.clone(), config.pass.clone());
 
     let (session, _) = Session::connect(session_config, credentials, None, false).await
-        .map_err(|err| { panic!("{}", err.to_string())} )
+        .map_err(|err| { eprintln!("Error creating session: {}", err.to_string())} )
         .unwrap();
 
     return session;

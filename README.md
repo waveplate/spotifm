@@ -212,36 +212,6 @@ all above return (example):
 }
 ```
 
-### `GET /mixer/music/fade?start=<START>&end=<END>&duration=<DURATION>`
-`START` is the volume percentage to start the fade at, e.g. `100`
-
-`END` is the volume percentage to end the fade at, e.g. `50`
-
-`DURATION` is the duration, in milliseconds, over which to conduct the fade, e.g. `3000`
-
-it returns:
-```
-{
-    "done": true
-}
-```
-
-### `GET /mixer/announce/volume?vol=<VOLUME>`
-`VOLUME` is the volume to set the announcements to, examples of acceptable values are
-
-`120%` - will set the volume to 120%
-
-`+10%` - this will increase the volume by 10%
-
-`140` - this will set the volume to 140dB
-
-it returns:
-```
-{
-    "volume": <VOLUME>
-}
-```
-
 ### `GET /espeak?text=<TEXT>`
 ### `GET /elevenlabs?text=<TEXT>`
 this will use espeak, or the elevenlabs API to speak your `TEXT`
