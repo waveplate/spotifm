@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Spotifm API Documentation</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png" />
+  <style>
+    html { box-sizing: border-box; overflow: -y-scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = () => {
+      window.ui = SwaggerUIBundle({
+        url: 'openapi.yaml',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>

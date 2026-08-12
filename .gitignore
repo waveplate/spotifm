@@ -1,3 +1,18 @@
-config.json
-ircbot.json
+target
+player/vendor/butterchurn.js
+player/vendor/butterchurn-presets.js
+
+# Local editor and assistant state
+.antigravitycli/
+.vscode/
+
+# Scratch scripts and generated runtime data
+tmp/
+playlists/
+
+# Python runtime artifacts
+**/__pycache__/
+*.py[cod]
+
+# discordbot config
 discordbot.json

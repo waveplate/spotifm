@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spotifm Minimal Player</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f1115;
+            --panel: #171a21;
+            --panel-soft: #1f2430;
+            --text: #f6f7fb;
+            --muted: #8d95a6;
+            --accent: #22c55e;
+            --line: rgba(255, 255, 255, 0.09);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        .app {
+            width: min(920px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 28px 0;
+            display: grid;
+            gap: 18px;
+        }
+
+        .now-playing {
+            display: grid;
+            grid-template-columns: 112px minmax(0, 1fr);
+            gap: 18px;
+            align-items: center;
+            padding: 16px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .cover {
+            width: 112px;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            background: var(--panel-soft);
+            object-fit: cover;
+        }
+
+        .track {
+            min-width: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .title {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.15;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .artists,
+        .status {
+            color: var(--muted);
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 6px;
+            padding: 9px 14px;
+            color: #06120a;
+            background: var(--accent);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            cursor: default;
+            opacity: 0.55;
+        }
+
+        .progress {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 44px;
+            gap: 10px;
+            align-items: center;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            font-size: 12px;
+        }
+
+        .bar {
+            height: 6px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: var(--panel-soft);
+        }
+
+        .bar-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--accent);
+        }
+
+        .lyrics {
+            height: min(58vh, 620px);
+            overflow-y: auto;
+            padding: 0 18px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .lyrics-inner {
+            display: grid;
+            gap: 18px;
+            min-height: 100%;
+            align-content: center;
+        }
+
+        .lyric-line {
+            color: var(--text);
+            font-size: clamp(20px, 4vw, 34px);
+            line-height: 1.18;
+            font-weight: 700;
+            text-align: center;
+            transition: color 180ms ease, transform 180ms ease, opacity 180ms ease;
+        }
+
+        .lyric-line.active {
+            color: var(--text);
+            transform: scale(1.03);
+        }
+
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            font-size: 16px;
+        }
+
+        @media (max-width: 620px) {
+            .app {
+                width: min(100vw - 20px, 920px);
+                padding: 10px 0;
+            }
+
+            .now-playing {
+                grid-template-columns: 74px minmax(0, 1fr);
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .cover {
+                width: 74px;
+            }
+
+            .title {
+                font-size: 18px;
+            }
+
+            .lyrics {
+                height: calc(100vh - 184px);
+                padding: 28px 12px;
+            }
+        }
+    </style>
+    <script src="{player_assets_endpoint}/vendor/ogg-vorbis-decoder.min.js" charset="UTF-8"></script>
+</head>
+<body>
+    <main class="app">
+        <section class="now-playing" aria-label="Now playing">
+            <img id="cover" class="cover" alt="" hidden>
+            <div id="cover-placeholder" class="cover"></div>
+            <div class="track">
+                <div>
+                    <h1 id="title" class="title">Idle</h1>
+                    <div id="artists" class="artists">No song playing</div>
+                </div>
+                <div class="controls">
+                    <button id="play-button" type="button">Play</button>
+                    <div id="status" class="status">Connecting</div>
+                </div>
+                <div class="progress">
+                    <span id="elapsed">0:00</span>
+                    <div class="bar" aria-hidden="true"><div id="progress-fill" class="bar-fill"></div></div>
+                    <span id="duration">0:00</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="lyrics" class="lyrics" aria-label="Lyrics">
+            <div id="lyrics-inner" class="lyrics-inner">
+                <div class="empty">Waiting for synced lyrics</div>
+            </div>
+        </section>
+    </main>
+
+    <audio id="audio" data-listen-endpoint="{listen_endpoint}" preload="none" crossorigin="anonymous"></audio>
+
+    <script>
+        const runtimeConfig = {
+            streamIsOgg: {stream_is_ogg},
+            streamIsPassthrough: {stream_is_passthrough},
+            listenEndpoint: "{listen_endpoint}",
+            playerEndpoint: "{player_endpoint}",
+        };
+
+        const IS_SINGLE_FILE_BUILD_SOURCE = window.location.protocol === 'file:';
+        const LYRICS_SWAP_SCROLL_FREEZE_MS = 1200;
+        const LYRIC_FADE_CURVE = 0.36;
+
+        const wasmDecoderNamespace = window["ogg-vorbis-decoder"];
+        const wasmPlaybackRequired = Boolean(
+            !IS_SINGLE_FILE_BUILD_SOURCE &&
+            runtimeConfig.streamIsPassthrough === true
+        );
+        const wasmPlaybackEnabled = Boolean(
+            wasmPlaybackRequired &&
+            runtimeConfig.streamIsOgg === true &&
+            wasmDecoderNamespace &&
+            (wasmDecoderNamespace.OggVorbisDecoderWebWorker || wasmDecoderNamespace.OggVorbisDecoder) &&
+            window.AudioWorkletNode &&
+            (window.AudioContext || window.webkitAudioContext)
+        );
+
+        const audio = document.getElementById('audio');
+        const playButton = document.getElementById('play-button');
+        const statusEl = document.getElementById('status');
+        const titleEl = document.getElementById('title');
+        const artistsEl = document.getElementById('artists');
+        const coverEl = document.getElementById('cover');
+        const coverPlaceholderEl = document.getElementById('cover-placeholder');
+        const elapsedEl = document.getElementById('elapsed');
+        const durationEl = document.getElementById('duration');
+        const progressFillEl = document.getElementById('progress-fill');
+        const lyricsPanelEl = document.getElementById('lyrics');
+        const lyricsInnerEl = document.getElementById('lyrics-inner');
+
+        const listenEndpoint = audio.dataset.listenEndpoint || runtimeConfig.listenEndpoint || '/listen';
+        const sessionId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+
+        let ws = null;
+        let isPlaying = false;
+        let trackDurationMs = 0;
+        let lastPositionMs = 0;
+        let lastPositionAt = 0;
+        let syncedLines = [];
+        let activeLineIndex = -1;
+
+        // WASM Playback state
+        let audioCtx = null;
+        let wasmAudioNode = null;
+        let wasmAudioWorkletReady = false;
+        let wasmDecoder = null;
+        let wasmDecoderReady = false;
+        let wasmFetchAbortController = null;
+        let wasmFetchPromise = null;
+        let wasmStreamGeneration = 0;
+        let wasmOggParserBuffer = new Uint8Array(0);
+        let wasmSeenBos = false;
+        let wasmClockReady = false;
+        let wasmPlaybackPositionSec = 0;
+        let wasmBufferedSeconds = 0;
+        let wasmLastTrackBoundaryAt = 0;
+
+        // Sync state from the full player
+        let isAutosync = true;
+        let autoSyncLyricsOffsetSec = 0;
+        let streamFirstGranuleSec = null;
+        let currentTrackStartGranuleSec = null;
+        let lastServerTime = 0;
+        let lastSyncInstant = 0;
+        let lastPositionTrackMs = null;
+
+        // Lyrics display hold state from the full player
+        let displayedLyricsHoldStartMs = null;
+        let displayedLyricsHoldAudioTimeSec = 0;
+        let currentLyricsTrackId = null;
+        let currentLyricsStateType = null;
+        let pendingLyricsState = null;
+        let lyricsScrollFreezeUntilMs = 0;
+        let lyricsScrollRestoreTimer = null;
+        let currentPlaybackTrackId = null;
+        let confirmedPlaybackTrackId = null;
+        let awaitingPlaybackTrackConfirmation = false;
+
+        function streamUrl() {
+            const url = new URL(listenEndpoint, window.location.origin);
+            url.searchParams.set('sid', sessionId);
+            url.searchParams.set('spotifm_tap', '1');
+            return url.toString();
+        }
+
+        function wsUrl() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = new URL('/ws', `${protocol}//${window.location.host}`);
+            url.searchParams.set('sid', sessionId);
+            return url.toString();
+        }
+
+        function formatTime(ms) {
+            const totalSec = Math.max(0, Math.floor(ms / 1000));
+            const min = Math.floor(totalSec / 60);
+            const sec = String(totalSec % 60).padStart(2, '0');
+            return `${min}:${sec}`;
+        }
+
+        function getWebSocketPositionSec() {
+            if (lastSyncInstant === 0) {
+                return null;
+            }
+            const elapsedSinceSync = (performance.now() - lastSyncInstant) / 1000.0;
+            return lastServerTime + elapsedSinceSync;
+        }
+
+        function getLocalGranulePositionSec() {
+            if (
+                wasmPlaybackEnabled ||
+                !isAutosync ||
+                currentTrackStartGranuleSec === null ||
+                streamFirstGranuleSec === null ||
+                !Number.isFinite(audio.currentTime) ||
+                audio.currentTime <= 0
+            ) {
+                return null;
+            }
+
+            const durationSec = trackDurationMs > 0 ? trackDurationMs / 1000.0 : null;
+            const isPlausiblePosition = (positionSec) => (
+                Number.isFinite(positionSec) &&
+                positionSec >= -0.25 &&
+                (durationSec === null || positionSec <= durationSec + 30.0)
+            );
+            // Chromium can expose the absolute Ogg granule timeline while other playback paths
+            // normalize currentTime to the start of this HTTP response. Compare both mappings to
+            // the listener-specific server position instead of assuming one browser convention.
+            const candidates = [
+                {
+                    mode: 'absolute-granule',
+                    positionSec: audio.currentTime - currentTrackStartGranuleSec,
+                },
+                {
+                    mode: 'server-origin',
+                    positionSec: streamFirstGranuleSec + audio.currentTime - currentTrackStartGranuleSec,
+                },
+            ].filter((candidate) => isPlausiblePosition(candidate.positionSec));
+            if (candidates.length === 0) {
+                return null;
+            }
+
+            const wsPositionSec = getWebSocketPositionSec();
+            const selected = Number.isFinite(wsPositionSec)
+                ? candidates.reduce((best, candidate) => (
+                    Math.abs(candidate.positionSec - wsPositionSec) <
+                    Math.abs(best.positionSec - wsPositionSec)
+                        ? candidate
+                        : best
+                ))
+                : candidates.find((candidate) => candidate.mode === 'server-origin') || candidates[0];
+
+            return Math.max(0, selected.positionSec);
+        }
+
+        function getInterpolatedPositionMs() {
+            if (!isPlaying) {
+                return 0;
+            }
+
+            const heldLyricsPositionMs = getHeldLyricsPositionMs();
+            if (heldLyricsPositionMs !== null) {
+                return heldLyricsPositionMs;
+            }
+
+            if (wasmPlaybackEnabled) {
+                if (!wasmClockReady) {
+                    return 0;
+                }
+                return Math.max(0, wasmPlaybackPositionSec * 1000.0);
+            }
+
+            if (isAutosync) {
+                const localPositionSec = getLocalGranulePositionSec();
+                if (localPositionSec !== null) {
+                    return localPositionSec * 1000.0;
+                }
+            }
+
+            const wsPositionSec = getWebSocketPositionSec();
+            if (wsPositionSec === null) return 0;
+            const currentPositionSec = wsPositionSec + (isAutosync ? autoSyncLyricsOffsetSec : 0);
+            return currentPositionSec * 1000.0;
+        }
+
+        // ==========================================
+        // Progress display
+        // ==========================================
+        function updateProgress() {
+            const heardPositionMs = isPlaying ? getInterpolatedPositionMs() : lastPositionMs;
+            const clampedPositionMs = Math.max(0, Math.min(trackDurationMs, heardPositionMs));
+            elapsedEl.textContent = formatTime(clampedPositionMs);
+            durationEl.textContent = formatTime(trackDurationMs);
+            const ratio = trackDurationMs > 0 ? clampedPositionMs / trackDurationMs : 0;
+            progressFillEl.style.width = `${ratio * 100}%`;
+        }
+
+        function resetLyricsScrollPosition() {
+            if (!lyricsPanelEl) {
+                return;
+            }
+            if (lyricsScrollRestoreTimer) {
+                clearTimeout(lyricsScrollRestoreTimer);
+                lyricsScrollRestoreTimer = null;
+            }
+            lyricsPanelEl.style.scrollBehavior = 'auto';
+            lyricsPanelEl.scrollTop = 0;
+
+            lyricsScrollRestoreTimer = window.setTimeout(() => {
+                lyricsPanelEl.style.scrollBehavior = '';
+                lyricsScrollRestoreTimer = null;
+            }, LYRICS_SWAP_SCROLL_FREEZE_MS);
+        }
+
+        function resizeLyricsPadding() {
+            if (lyricsPanelEl && lyricsInnerEl) {
+                if (lyricsInnerEl.querySelector('.empty')) {
+                    lyricsInnerEl.style.paddingTop = '0px';
+                    lyricsInnerEl.style.paddingBottom = '0px';
+                    lyricsInnerEl.style.height = '100%';
+                    return;
+                }
+                lyricsInnerEl.style.height = '';
+                const padHeight = Math.max(100, lyricsPanelEl.clientHeight / 2 - 20);
+                lyricsInnerEl.style.paddingTop = padHeight + 'px';
+                lyricsInnerEl.style.paddingBottom = padHeight + 'px';
+            }
+        }
+
+        function setPlaceholder(text) {
+            syncedLines = [];
+            activeLineIndex = -1;
+            resetLyricsScrollPosition();
+            lyricsInnerEl.innerHTML = '';
+            const el = document.createElement('div');
+            el.className = 'empty';
+            el.textContent = text;
+            lyricsInnerEl.appendChild(el);
+            resizeLyricsPadding();
+        }
+
+        // ==========================================
+        // Lyrics rendering & highlighting
+        // ==========================================
+        function renderLyrics(lines) {
+            syncedLines = Array.isArray(lines) ? lines.slice().sort((a, b) => a.time_ms - b.time_ms) : [];
+            activeLineIndex = -1;
+            lyricsInnerEl.innerHTML = '';
+
+            if (syncedLines.length === 0) {
+                setPlaceholder('No synced lyrics available');
+                return;
+            }
+
+            syncedLines.forEach((line, index) => {
+                const el = document.createElement('div');
+                el.className = 'lyric-line';
+                el.id = `lyric-${index}`;
+                el.textContent = line.text || '';
+                el.style.opacity = '0.3';
+                lyricsInnerEl.appendChild(el);
+            });
+            resetLyricsScrollPosition();
+            resizeLyricsPadding();
+        }
+
+        function updateLyrics(forceScroll = false) {
+            if (syncedLines.length === 0) {
+                return;
+            }
+
+            const positionMs = getInterpolatedPositionMs();
+            let nextActive = -1;
+            for (let i = 0; i < syncedLines.length; i += 1) {
+                if (syncedLines[i].time_ms <= positionMs) {
+                    nextActive = i;
+                } else {
+                    break;
+                }
+            }
+
+            if (nextActive === activeLineIndex && !forceScroll) {
+                return;
+            }
+
+            if (activeLineIndex >= 0) {
+                document.getElementById(`lyric-${activeLineIndex}`)?.classList.remove('active');
+            }
+
+            activeLineIndex = nextActive;
+
+            for (let i = 0; i < syncedLines.length; i++) {
+                const lineEl = document.getElementById(`lyric-${i}`);
+                if (!lineEl) continue;
+
+                if (activeLineIndex === -1) {
+                    lineEl.style.opacity = '0.3';
+                    continue;
+                }
+
+                const isActive = (i === activeLineIndex);
+                lineEl.style.opacity = isActive ? '1' : '0.3';
+            }
+
+            if (activeLineIndex >= 0) {
+                const activeEl = document.getElementById(`lyric-${activeLineIndex}`);
+                if (activeEl) {
+                    activeEl.classList.add('active');
+                    if (performance.now() >= lyricsScrollFreezeUntilMs) {
+                        const panelHeight = lyricsPanelEl.clientHeight;
+                        const elOffset = activeEl.offsetTop;
+                        const elHeight = activeEl.clientHeight;
+
+                        lyricsPanelEl.scrollTop =
+                            elOffset - (panelHeight / 2) + (elHeight / 2);
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // Transition holds & playback confirmations
+        // ==========================================
+        function clearDisplayedLyricsHold() {
+            displayedLyricsHoldStartMs = null;
+            displayedLyricsHoldAudioTimeSec = 0;
+        }
+
+        function clearPendingLyricsTransition() {
+            pendingLyricsState = null;
+        }
+
+        function beginDisplayedLyricsHold() {
+            if (displayedLyricsHoldStartMs !== null) {
+                return;
+            }
+            displayedLyricsHoldStartMs = getInterpolatedPositionMs();
+            displayedLyricsHoldAudioTimeSec = wasmPlaybackEnabled ? wasmPlaybackPositionSec : (audio.currentTime || 0);
+        }
+
+        function getHeldLyricsPositionMs() {
+            if (displayedLyricsHoldStartMs === null) {
+                return null;
+            }
+            const currentSec = wasmPlaybackEnabled ? wasmPlaybackPositionSec : (audio.currentTime || 0);
+            const heldDeltaMs = Math.max(0, (currentSec - displayedLyricsHoldAudioTimeSec) * 1000.0);
+            return displayedLyricsHoldStartMs + heldDeltaMs;
+        }
+
+        function applyLyricsState(state) {
+            clearDisplayedLyricsHold();
+            clearPendingLyricsTransition();
+            lyricsScrollFreezeUntilMs = performance.now() + LYRICS_SWAP_SCROLL_FREEZE_MS;
+            activeLineIndex = -1;
+            resetLyricsScrollPosition();
+
+            if (state.type === 'Lyrics') {
+                currentLyricsStateType = 'Lyrics';
+                currentLyricsTrackId = state.track_id || null;
+                renderLyrics(state.lines);
+            } else if (state.type === 'NoLyrics') {
+                currentLyricsStateType = 'NoLyrics';
+                currentLyricsTrackId = null;
+                setPlaceholder('No lyrics available for this track');
+            }
+        }
+
+        function pendingLyricsMatchesCurrentPlaybackTrack() {
+            if (!pendingLyricsState || !currentPlaybackTrackId) {
+                return false;
+            }
+            if (pendingLyricsState.type === 'Lyrics') {
+                return !!pendingLyricsState.track_id && pendingLyricsState.track_id === currentPlaybackTrackId;
+            }
+            return currentLyricsTrackId !== null && currentLyricsTrackId !== currentPlaybackTrackId;
+        }
+
+        function maybeCommitPendingLyricsTransition() {
+            if (!pendingLyricsState) {
+                return false;
+            }
+            if (awaitingPlaybackTrackConfirmation || !pendingLyricsMatchesCurrentPlaybackTrack()) {
+                return false;
+            }
+            applyLyricsState(pendingLyricsState);
+            updateLyrics(true);
+            return true;
+        }
+
+        function stageLyricsTransition(state) {
+            beginDisplayedLyricsHold();
+            pendingLyricsState = state;
+        }
+
+        function handleIncomingLyricsState(state) {
+            if (
+                state.type === 'Lyrics' &&
+                state.track_id &&
+                currentPlaybackTrackId &&
+                state.track_id !== currentPlaybackTrackId
+            ) {
+                stageLyricsTransition(state);
+                return;
+            }
+
+            if (currentLyricsStateType === null) {
+                applyLyricsState(state);
+                updateLyrics(true);
+                return;
+            }
+
+            const isDifferentTrackLyrics =
+                state.type === 'Lyrics' &&
+                state.track_id &&
+                state.track_id !== currentLyricsTrackId;
+            const isDifferentLyricsStateType =
+                state.type === 'NoLyrics' &&
+                currentLyricsStateType !== null &&
+                currentLyricsStateType !== 'NoLyrics';
+            const shouldStageTransition =
+                isAutosync &&
+                currentLyricsStateType !== null &&
+                (isDifferentTrackLyrics || isDifferentLyricsStateType);
+
+            if (shouldStageTransition) {
+                stageLyricsTransition(state);
+                maybeCommitPendingLyricsTransition();
+                return;
+            }
+
+            if (
+                state.type === 'NoLyrics' &&
+                currentLyricsTrackId &&
+                currentPlaybackTrackId &&
+                currentLyricsTrackId !== currentPlaybackTrackId
+            ) {
+                stageLyricsTransition(state);
+                return;
+            }
+
+            applyLyricsState(state);
+            updateLyrics(true);
+        }
+
+        function applyNowPlaying(track) {
+            titleEl.textContent = track.track_name || 'Idle';
+            artistsEl.textContent = Array.isArray(track.artists) ? track.artists.join(', ') : '';
+            trackDurationMs = Number.isFinite(track.track_duration_ms) ? track.track_duration_ms : 0;
+
+            if (Number.isFinite(track.position_ms)) {
+                lastPositionMs = track.position_ms;
+                lastPositionAt = performance.now();
+            }
+
+            if (track.cover_url) {
+                coverEl.src = track.cover_url;
+                coverEl.hidden = false;
+                coverPlaceholderEl.hidden = true;
+            } else {
+                coverEl.removeAttribute('src');
+                coverEl.hidden = true;
+                coverPlaceholderEl.hidden = false;
+            }
+
+            if ('mediaSession' in navigator && window.MediaMetadata) {
+                const metadata = {
+                    title: track.track_name || 'Spotifm Radio',
+                    artist: Array.isArray(track.artists) ? track.artists.join(', ') : '',
+                    album: track.album_name || '',
+                };
+                if (track.cover_url) {
+                    metadata.artwork = [{ src: track.cover_url }];
+                }
+                navigator.mediaSession.metadata = new MediaMetadata(metadata);
+            }
+
+            const nextTrackId = track.track_id || null;
+            const previousTrackId = currentPlaybackTrackId;
+            currentPlaybackTrackId = nextTrackId;
+
+            if (nextTrackId && nextTrackId !== previousTrackId) {
+                if (isAutosync && currentLyricsStateType !== null) {
+                    beginDisplayedLyricsHold();
+                }
+                currentTrackStartGranuleSec = null;
+                if (previousTrackId === null && confirmedPlaybackTrackId === null) {
+                    confirmedPlaybackTrackId = nextTrackId;
+                    awaitingPlaybackTrackConfirmation = false;
+                } else if (wasmPlaybackEnabled && performance.now() - wasmLastTrackBoundaryAt < 1500) {
+                    confirmedPlaybackTrackId = nextTrackId;
+                    awaitingPlaybackTrackConfirmation = false;
+                } else {
+                    awaitingPlaybackTrackConfirmation = true;
+                }
+                maybeCommitPendingLyricsTransition();
+            } else if (!nextTrackId) {
+                awaitingPlaybackTrackConfirmation = false;
+            }
+        }
+
+        // ==========================================
+        // WASM stream decoder implementation
+        // ==========================================
+        function appendUint8Array(a, b) {
+            if (!a || a.length === 0) {
+                return b;
+            }
+            const merged = new Uint8Array(a.length + b.length);
+            merged.set(a, 0);
+            merged.set(b, a.length);
+            return merged;
+        }
+
+        function readOggGranule(view, offset) {
+            const lo = view.getUint32(offset + 6, true);
+            const hi = view.getUint32(offset + 10, true);
+            if (lo === 0xffffffff && hi === 0xffffffff) {
+                return null;
+            }
+            return lo + hi * 4294967296;
+        }
+
+        function parseWasmOggPages(chunk) {
+            wasmOggParserBuffer = appendUint8Array(wasmOggParserBuffer, chunk);
+            const pages = [];
+            let offset = 0;
+
+            while (offset + 27 <= wasmOggParserBuffer.length) {
+                if (
+                    wasmOggParserBuffer[offset] !== 0x4f ||
+                    wasmOggParserBuffer[offset + 1] !== 0x67 ||
+                    wasmOggParserBuffer[offset + 2] !== 0x67 ||
+                    wasmOggParserBuffer[offset + 3] !== 0x53
+                ) {
+                    offset += 1;
+                    continue;
+                }
+
+                const segmentCount = wasmOggParserBuffer[offset + 26];
+                if (offset + 27 + segmentCount > wasmOggParserBuffer.length) {
+                    break;
+                }
+
+                let bodySize = 0;
+                for (let i = 0; i < segmentCount; i += 1) {
+                    bodySize += wasmOggParserBuffer[offset + 27 + i];
+                }
+
+                const totalSize = 27 + segmentCount + bodySize;
+                if (offset + totalSize > wasmOggParserBuffer.length) {
+                    break;
+                }
+
+                const view = new DataView(
+                    wasmOggParserBuffer.buffer,
+                    wasmOggParserBuffer.byteOffset,
+                    wasmOggParserBuffer.byteLength
+                );
+                pages.push({
+                    bytes: wasmOggParserBuffer.slice(offset, offset + totalSize),
+                    headerType: wasmOggParserBuffer[offset + 5],
+                    granule: readOggGranule(view, offset),
+                    serial: view.getUint32(offset + 14, true),
+                });
+                offset += totalSize;
+            }
+
+            if (offset > 0) {
+                wasmOggParserBuffer = wasmOggParserBuffer.slice(offset);
+            }
+
+            return pages;
+        }
+
+        async function ensureWasmDecoder() {
+            if (!wasmPlaybackEnabled) {
+                throw new Error('WASM playback is not available for this stream.');
+            }
+
+            if (wasmDecoder) {
+                if (!wasmDecoderReady) {
+                    await wasmDecoder.ready;
+                    wasmDecoderReady = true;
+                }
+                return wasmDecoder;
+            }
+
+            const workerDecoderClass = wasmDecoderNamespace.OggVorbisDecoderWebWorker;
+            const mainDecoderClass = wasmDecoderNamespace.OggVorbisDecoder;
+
+            if (workerDecoderClass) {
+                try {
+                    wasmDecoder = new workerDecoderClass();
+                    await wasmDecoder.ready;
+                    wasmDecoderReady = true;
+                    return wasmDecoder;
+                } catch (error) {
+                    console.warn('[WASM Audio] Worker decoder failed; falling back to main-thread decoder.', error);
+                    if (wasmDecoder && typeof wasmDecoder.free === 'function') {
+                        try {
+                            wasmDecoder.free();
+                        } catch (_) {}
+                    }
+                    wasmDecoder = null;
+                    wasmDecoderReady = false;
+                }
+            }
+
+            if (!mainDecoderClass) {
+                throw new Error('No Ogg Vorbis WASM decoder class was loaded.');
+            }
+
+            wasmDecoder = new mainDecoderClass();
+            await wasmDecoder.ready;
+            wasmDecoderReady = true;
+            return wasmDecoder;
+        }
+
+        async function resetWasmDecoderStream() {
+            const decoder = await ensureWasmDecoder();
+            await decoder.reset();
+            wasmOggParserBuffer = new Uint8Array(0);
+            wasmSeenBos = false;
+        }
+
+        function resampleChannel(input, inputRate, outputRate) {
+            if (!input || input.length === 0) {
+                return new Float32Array(0);
+            }
+
+            if (inputRate === outputRate) {
+                return new Float32Array(input);
+            }
+
+            const ratio = outputRate / inputRate;
+            const outputLength = Math.max(1, Math.round(input.length * ratio));
+            const output = new Float32Array(outputLength);
+
+            for (let i = 0; i < outputLength; i += 1) {
+                const sourcePos = i / ratio;
+                const sourceIndex = Math.floor(sourcePos);
+                const frac = sourcePos - sourceIndex;
+                const a = input[sourceIndex] || 0;
+                const b = input[Math.min(sourceIndex + 1, input.length - 1)] || a;
+                output[i] = a + (b - a) * frac;
+            }
+
+            return output;
+        }
+
+        function enqueueDecodedWasmAudio(decoded, page) {
+            if (!wasmAudioNode || !decoded || !decoded.samplesDecoded || page.granule === null) {
+                return;
+            }
+
+            const decodedSampleRate = decoded.sampleRate || 44100;
+            const outputSampleRate = audioCtx ? audioCtx.sampleRate : decodedSampleRate;
+            const channelData = Array.isArray(decoded.channelData) ? decoded.channelData : [];
+            const sourceLeft = channelData[0];
+            const sourceRight = channelData[1] || sourceLeft;
+
+            if (!sourceLeft || sourceLeft.length === 0) {
+                return;
+            }
+
+            const decodedStartSec = Math.max(
+                0,
+                (page.granule - decoded.samplesDecoded) / decodedSampleRate
+            );
+            const left = resampleChannel(sourceLeft, decodedSampleRate, outputSampleRate);
+            const right = sourceRight === sourceLeft
+                ? new Float32Array(left)
+                : resampleChannel(sourceRight, decodedSampleRate, outputSampleRate);
+            const frames = Math.min(left.length, right.length);
+
+            if (frames === 0) {
+                return;
+            }
+
+            const leftBuffer = frames === left.length ? left : left.slice(0, frames);
+            const rightBuffer = frames === right.length ? right : right.slice(0, frames);
+            wasmAudioNode.port.postMessage(
+                {
+                    type: 'enqueue',
+                    left: leftBuffer.buffer,
+                    right: rightBuffer.buffer,
+                    startSec: decodedStartSec,
+                },
+                [leftBuffer.buffer, rightBuffer.buffer]
+            );
+        }
+
+        async function processWasmOggPage(page, generation) {
+            if (generation !== wasmStreamGeneration) {
+                return;
+            }
+
+            const decoder = await ensureWasmDecoder();
+            const isBos = (page.headerType & 0x02) !== 0;
+
+            if (isBos) {
+                if (wasmSeenBos) {
+                    await decoder.reset();
+                    if (wasmAudioNode) {
+                        wasmAudioNode.port.postMessage({ type: 'track-boundary' });
+                    }
+                } else {
+                    wasmSeenBos = true;
+                    if (wasmAudioNode) {
+                        wasmAudioNode.port.postMessage({ type: 'reset-now', positionSec: 0 });
+                    }
+                }
+            }
+
+            const decoded = await decoder.decode(page.bytes);
+            if (generation !== wasmStreamGeneration) {
+                return;
+            }
+
+            if (decoded && decoded.errors && decoded.errors.length > 0) {
+                console.warn('[WASM Audio] Ogg/Vorbis decode warnings:', decoded.errors);
+            }
+            enqueueDecodedWasmAudio(decoded, page);
+        }
+
+        async function startWasmStream() {
+            if (!wasmPlaybackEnabled || wasmFetchPromise) {
+                return wasmFetchPromise;
+            }
+
+            const controller = new AbortController();
+            const generation = wasmStreamGeneration + 1;
+            wasmStreamGeneration = generation;
+            wasmFetchAbortController = controller;
+            const streamPromise = (async () => {
+                await resetWasmDecoderStream();
+                const response = await fetch(streamUrl(), {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+
+                if (!response.ok || !response.body) {
+                    throw new Error(`Audio stream request failed with HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+
+                    const pages = parseWasmOggPages(value);
+                    for (const page of pages) {
+                        await processWasmOggPage(page, generation);
+                    }
+                }
+            })()
+                .catch((error) => {
+                    if (error && error.name === 'AbortError') {
+                        return;
+                    }
+                    console.error('[WASM Audio] Stream failed:', error);
+                    if (isPlaying) {
+                        setPlayState('loading');
+                        window.setTimeout(() => {
+                            if (isPlaying && !wasmFetchPromise) {
+                                startWasmStream();
+                            }
+                        }, 1000);
+                    }
+                })
+                .finally(() => {
+                    if (wasmFetchPromise === streamPromise) {
+                        wasmFetchAbortController = null;
+                        wasmFetchPromise = null;
+                    }
+                });
+
+            wasmFetchPromise = streamPromise;
+            return wasmFetchPromise;
+        }
+
+        function stopWasmStream(clearQueue = true) {
+            if (wasmFetchAbortController) {
+                wasmFetchAbortController.abort();
+            }
+            wasmFetchAbortController = null;
+            wasmFetchPromise = null;
+            wasmStreamGeneration += 1;
+            wasmOggParserBuffer = new Uint8Array(0);
+            wasmSeenBos = false;
+
+            if (clearQueue && wasmAudioNode) {
+                wasmClockReady = false;
+                wasmPlaybackPositionSec = 0;
+                wasmBufferedSeconds = 0;
+                wasmAudioNode.port.postMessage({ type: 'reset-now', positionSec: 0 });
+            }
+        }
+
+        function handleWasmTrackBoundary() {
+            wasmLastTrackBoundaryAt = performance.now();
+            wasmPlaybackPositionSec = 0;
+            lastPositionTrackMs = null;
+            currentTrackStartGranuleSec = 0;
+
+            if (currentPlaybackTrackId) {
+                confirmedPlaybackTrackId = currentPlaybackTrackId;
+                awaitingPlaybackTrackConfirmation = false;
+            }
+
+            clearDisplayedLyricsHold();
+            maybeCommitPendingLyricsTransition();
+            updateLyrics(true);
+            updateProgress();
+        }
+
+        function handleWasmAudioMessage(event) {
+            const message = event.data || {};
+
+            if (message.type === 'position') {
+                if (Number.isFinite(message.seconds)) {
+                    wasmPlaybackPositionSec = Math.max(0, message.seconds);
+                    wasmClockReady = true;
+                    lastSyncInstant = performance.now();
+                }
+
+                if (Number.isFinite(message.bufferedSeconds)) {
+                    wasmBufferedSeconds = Math.max(0, message.bufferedSeconds);
+                }
+
+                if (message.boundary) {
+                    handleWasmTrackBoundary();
+                } else {
+                    updateLyrics();
+                    updateProgress();
+                }
+            } else if (message.type === 'track-boundary') {
+                handleWasmTrackBoundary();
+            }
+        }
+
+        async function ensureWasmAudioOutput() {
+            if (!wasmPlaybackEnabled) {
+                throw new Error('WASM playback is not enabled for this stream.');
+            }
+
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+
+                const workletBase64 = "__SPOTIFM_AUDIO_WORKLET_BASE64__";
+                const binary = atob(workletBase64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                const workletCode = new TextDecoder('utf-8').decode(bytes);
+                const blob = new Blob([workletCode], { type: 'application/javascript' });
+                const workletUrl = URL.createObjectURL(blob);
+                await audioCtx.audioWorklet.addModule(workletUrl);
+                wasmAudioWorkletReady = true;
+
+            if (!wasmAudioNode) {
+                wasmAudioNode = new AudioWorkletNode(audioCtx, 'spotifm-audio-output', {
+                    numberOfInputs: 0,
+                    numberOfOutputs: 1,
+                    outputChannelCount: [2],
+                });
+                wasmAudioNode.port.onmessage = handleWasmAudioMessage;
+                wasmAudioNode.port.postMessage({
+                    type: 'volume',
+                    volume: 1.0,
+                });
+            }
+
+            wasmAudioNode.connect(audioCtx.destination);
+        }
+
+        // ==========================================
+        // Play State & Playback Controllers
+        // ==========================================
+        function setPlayState(stateVal) {
+            if (stateVal === 'playing') {
+                isPlaying = true;
+                playButton.textContent = 'Pause';
+                statusEl.textContent = 'Playing';
+            } else if (stateVal === 'loading') {
+                isPlaying = false;
+                playButton.textContent = 'Loading';
+                statusEl.textContent = 'Buffering';
+            } else { // paused
+                isPlaying = false;
+                playButton.textContent = 'Play';
+                statusEl.textContent = 'Paused';
+            }
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = stateVal === 'paused' ? 'paused' : 'playing';
+            }
+        }
+
+        async function startWasmPlayback() {
+            setPlayState('loading');
+            await ensureWasmAudioOutput();
+            await ensureWasmDecoder();
+            startWasmStream();
+
+            if (audioCtx && audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+
+            setPlayState('playing');
+        }
+
+        async function pauseWasmPlayback() {
+            stopWasmStream(true);
+            if (audioCtx && audioCtx.state === 'running') {
+                await audioCtx.suspend();
+            }
+            setPlayState('paused');
+        }
+
+        async function playPlayback() {
+            if (wasmPlaybackEnabled) {
+                if (!isPlaying) {
+                    await startWasmPlayback();
+                }
+                return;
+            }
+
+            if (!audio.src) {
+                audio.src = streamUrl();
+            }
+            await audio.play();
+        }
+
+        async function pausePlayback() {
+            if (wasmPlaybackEnabled) {
+                if (isPlaying) {
+                    await pauseWasmPlayback();
+                }
+                return;
+            }
+            audio.pause();
+        }
+
+        async function togglePlayback() {
+            if (isPlaying) {
+                await pausePlayback();
+            } else {
+                await playPlayback();
+            }
+        }
+
+        function runPlaybackAction(action) {
+            void action().catch((error) => {
+                console.error('[MediaControls] Playback action failed:', error);
+                setPlayState('paused');
+            });
+        }
+
+        let remoteTrackChangePromise = null;
+
+        function requestRemoteTrackChange(step) {
+            if (remoteTrackChangePromise) {
+                return remoteTrackChangePromise;
+            }
+
+            const path = step < 0 ? `/skip/${step}` : '/skip';
+            remoteTrackChangePromise = fetch(path, { cache: 'no-store' })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then((nowPlaying) => {
+                    applyNowPlaying(nowPlaying);
+                    return nowPlaying;
+                })
+                .catch((error) => {
+                    console.error(`[MediaControls] Could not change track by ${step}:`, error);
+                    return null;
+                })
+                .finally(() => {
+                    remoteTrackChangePromise = null;
+                });
+
+            return remoteTrackChangePromise;
+        }
+
+        function installMediaSessionControls() {
+            if (!('mediaSession' in navigator)) {
+                return;
+            }
+
+            const handlers = {
+                previoustrack: () => { void requestRemoteTrackChange(-1); },
+                play: () => { runPlaybackAction(playPlayback); },
+                pause: () => { runPlaybackAction(pausePlayback); },
+                nexttrack: () => { void requestRemoteTrackChange(1); },
+            };
+
+            Object.entries(handlers).forEach(([action, handler]) => {
+                try {
+                    navigator.mediaSession.setActionHandler(action, handler);
+                } catch (error) {
+                    console.warn(`[MediaControls] ${action} is not supported:`, error);
+                }
+            });
+        }
+
+        // ==========================================
+        // WebSocket client messaging
+        // ==========================================
+        function handleMessage(msg) {
+            if (msg.type === 'NowPlaying') {
+                applyNowPlaying(msg);
+            } else if (msg.type === 'Lyrics') {
+                handleIncomingLyricsState(msg);
+            } else if (msg.type === 'Position') {
+                const previousTrackMs = lastPositionTrackMs;
+                const preUpdateDisplayedLyricsPositionMs = getInterpolatedPositionMs();
+
+                lastServerTime = msg.position_ms / 1000.0;
+                lastPositionMs = Number.isFinite(msg.position_ms) ? msg.position_ms : lastPositionMs;
+                lastSyncInstant = performance.now();
+                lastPositionAt = lastSyncInstant;
+
+                if (msg.start_granule_sec !== undefined && msg.start_granule_sec !== null) {
+                    const nextTrackStartGranuleSec = Number(msg.start_granule_sec);
+                    if (
+                        Number.isFinite(nextTrackStartGranuleSec) &&
+                        currentTrackStartGranuleSec !== nextTrackStartGranuleSec
+                    ) {
+                        currentTrackStartGranuleSec = nextTrackStartGranuleSec;
+                    }
+                }
+                if (msg.stream_origin_sec !== undefined && msg.stream_origin_sec !== null) {
+                    const nextStreamOriginSec = Number(msg.stream_origin_sec);
+                    if (
+                        Number.isFinite(nextStreamOriginSec) &&
+                        streamFirstGranuleSec !== nextStreamOriginSec
+                    ) {
+                        streamFirstGranuleSec = nextStreamOriginSec;
+                    }
+                }
+
+                const positionReset =
+                    previousTrackMs !== null &&
+                    msg.position_ms + 2500 < previousTrackMs;
+                if (
+                    isAutosync &&
+                    currentLyricsStateType !== null &&
+                    displayedLyricsHoldStartMs === null &&
+                    positionReset
+                ) {
+                    displayedLyricsHoldStartMs = preUpdateDisplayedLyricsPositionMs;
+                    displayedLyricsHoldAudioTimeSec = wasmPlaybackEnabled ? wasmPlaybackPositionSec : (audio.currentTime || 0);
+                }
+
+                if (msg.track_id && msg.track_id !== currentPlaybackTrackId) {
+                    currentPlaybackTrackId = msg.track_id;
+                    awaitingPlaybackTrackConfirmation = true;
+                }
+
+                const initialTrackLock =
+                    confirmedPlaybackTrackId === null &&
+                    currentPlaybackTrackId !== null;
+                const earlyTrackWindow =
+                    awaitingPlaybackTrackConfirmation &&
+                    msg.position_ms < 5000;
+
+                if (
+                    currentPlaybackTrackId &&
+                    (initialTrackLock || (awaitingPlaybackTrackConfirmation && (positionReset || earlyTrackWindow || msg.track_id === currentPlaybackTrackId)))
+                ) {
+                    confirmedPlaybackTrackId = currentPlaybackTrackId;
+                    awaitingPlaybackTrackConfirmation = false;
+                }
+
+                lastPositionTrackMs = msg.position_ms;
+
+                maybeCommitPendingLyricsTransition();
+                updateLyrics();
+            } else if (msg.type === 'NoLyrics') {
+                handleIncomingLyricsState({ type: 'NoLyrics' });
+            } else if (msg.type === 'Idle') {
+                clearDisplayedLyricsHold();
+                clearPendingLyricsTransition();
+                currentLyricsTrackId = null;
+                currentLyricsStateType = null;
+                currentPlaybackTrackId = null;
+                confirmedPlaybackTrackId = null;
+                trackDurationMs = 0;
+                lastPositionMs = 0;
+                lastPositionAt = 0;
+                streamFirstGranuleSec = null;
+                currentTrackStartGranuleSec = null;
+                awaitingPlaybackTrackConfirmation = false;
+                lastPositionTrackMs = null;
+                lastServerTime = 0;
+                lastSyncInstant = 0;
+                titleEl.textContent = 'Idle';
+                artistsEl.textContent = 'No song playing';
+                coverEl.hidden = true;
+                coverPlaceholderEl.hidden = false;
+                setPlaceholder('Waiting for synced lyrics');
+            }
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(wsUrl());
+            ws.addEventListener('open', () => {
+                statusEl.textContent = 'Synced';
+            });
+            ws.addEventListener('message', (event) => {
+                try {
+                    handleMessage(JSON.parse(event.data));
+                } catch (error) {
+                    console.warn('Could not parse player message:', error);
+                }
+            });
+            ws.addEventListener('close', () => {
+                statusEl.textContent = 'Reconnecting';
+                window.setTimeout(connectWebSocket, 3000);
+            });
+            ws.addEventListener('error', () => {
+                statusEl.textContent = 'Connection error';
+            });
+        }
+
+        playButton.addEventListener('click', () => {
+            void togglePlayback().catch((error) => {
+                console.error('Audio playback error:', error);
+                setPlayState('paused');
+                statusEl.textContent = 'Click play to allow audio';
+            });
+        });
+
+        window.addEventListener('keydown', (event) => {
+            if (event.repeat) {
+                return;
+            }
+
+            if (event.key === 'F5' || event.key === 'MediaTrackPrevious') {
+                event.preventDefault();
+                void requestRemoteTrackChange(-1);
+            } else if (event.key === 'F6' || event.key === 'MediaPlayPause') {
+                event.preventDefault();
+                runPlaybackAction(togglePlayback);
+            } else if (event.key === 'F7' || event.key === 'MediaTrackNext') {
+                event.preventDefault();
+                void requestRemoteTrackChange(1);
+            }
+        });
+
+        installMediaSessionControls();
+
+        // ==========================================
+        // Standard HTML5 Audio Media Events fallback
+        // ==========================================
+        audio.addEventListener('loadstart', () => {
+            if (!wasmPlaybackEnabled && !audio.paused) {
+                setPlayState('loading');
+            }
+        });
+
+        audio.addEventListener('playing', () => {
+            if (!wasmPlaybackEnabled) {
+                setPlayState('playing');
+            }
+        });
+
+        audio.addEventListener('pause', () => {
+            if (!wasmPlaybackEnabled) {
+                setPlayState('paused');
+            }
+        });
+
+        audio.addEventListener('waiting', () => {
+            if (!wasmPlaybackEnabled && !audio.paused) {
+                setPlayState('loading');
+            }
+        });
+
+        window.addEventListener('click', () => {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }, { once: true });
+
+        window.addEventListener('resize', () => {
+            resizeLyricsPadding();
+        });
+
+        function tick() {
+            maybeCommitPendingLyricsTransition();
+            updateProgress();
+            updateLyrics();
+            requestAnimationFrame(tick);
+        }
+
+        if (!IS_SINGLE_FILE_BUILD_SOURCE) {
+            connectWebSocket();
+        }
+        requestAnimationFrame(tick);
+    </script>
+</body>
+</html>

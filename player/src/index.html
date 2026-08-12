@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Spotifm | Web Player</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Workbench&family=Rubik+Bubbles&family=Jolly+Lodger&family=Creepster&family=Jersey+25+Charted&family=Sixtyfour:BLED,SCAN@0,0&family=Yuyu+Short&family=Linefont:wdth,wght@100,100&family=Nabla:EDPT,EHLT@0,0&family=Outfit:wght@400;600;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/vcr-osd-mono" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/000-player.css">
+    <style id="lyrics-dynamic-style"></style>
+</head>
+<body>
+    <!-- Ambient Canvas Background -->
+    <canvas id="visualizer-canvas"></canvas>
+    <button type="button" id="idle-play-prompt" class="idle-play-prompt lyric-line active" hidden>click to play</button>
+    <div class="container no-transition">
+        <!-- Settings Toggle Gear Button -->
+        <button id="toggle-settings-btn" class="top-action-button chrome-fade-target" aria-label="Toggle Settings">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
+
+        <!-- Volume Button (mute/unmute only, moved to bottom of column) -->
+
+        <!-- Search Toggle Button -->
+        <button id="toggle-search-btn" class="top-action-button chrome-fade-target" aria-label="Toggle Search">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </button>
+
+        <!-- Switch Playlist Button -->
+        <button id="toggle-playlist-btn" class="top-action-button chrome-fade-target" aria-label="Switch Playlist">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+        </button>
+
+        <!-- Active Playlist Tracks Button -->
+        <button id="toggle-active-playlist-btn" class="top-action-button chrome-fade-target" aria-label="Show Active Playlist" title="Active Playlist">
+            <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="#e3e3e3" aria-hidden="true" focusable="false"><path d="M490.67-342Q532-342 561-370.61q29-28.62 29-70.06V-682h117.33v-66.67H550v231.34q-11.67-9.34-26.88-14.34-15.21-5-32.45-5-40.04 0-67.69 27.91-27.65 27.92-27.65 68.34T422.98-371q27.65 29 67.69 29ZM280-213.33q-27 0-46.83-19.84Q213.33-253 213.33-280v-533.33q0-27 19.84-46.84Q253-880 280-880h533.33q27 0 46.84 19.83Q880-840.33 880-813.33V-280q0 27-19.83 46.83-19.84 19.84-46.84 19.84H280Zm0-66.67h533.33v-533.33H280V-280ZM146.67-80q-27 0-46.84-19.83Q80-119.67 80-146.67v-600h66.67v600h600V-80h-600ZM280-813.33V-280v-533.33Z"/></svg>
+        </button>
+
+        <!-- Volume Button (mute/unmute) - bottom of right column -->
+        <div id="volume-flyout" class="chrome-fade-target">
+            <button id="volume-toggle-btn" class="top-action-button" aria-label="Mute audio" aria-pressed="false" type="button" title="Mute">
+                <svg id="volume-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path id="volume-wave-small" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    <path id="volume-wave-large" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    <line id="volume-muted-line" x1="3" y1="3" x2="21" y2="21" style="display: none;"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div id="settings-action-rail" class="settings-action-rail chrome-fade-target" aria-label="Settings sections">
+            <button type="button" class="top-action-button settings-section-button active" data-settings-section-target="lyrics" aria-label="Lyrics settings" aria-pressed="true" title="Lyrics">
+                <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor" aria-hidden="true" focusable="false"><path d="M80-80v-733.33q0-27.5 19.58-47.09Q119.17-880 146.67-880h466.66q27.5 0 47.09 19.58Q680-840.83 680-813.33v45q-19.33 9.66-36.24 23-16.9 13.33-30.43 30v-98H146.67v573l65-66.34h401.66v-178q13.53 16.67 30.43 30 16.91 13.34 36.24 23v125q0 27.5-19.58 47.09Q640.83-240 613.33-240H240L80-80Zm160-326.67h160v-66.66H240v66.66Zm519.92-80q-47.25 0-80.25-33.08-33-33.07-33-80.33 0-47.25 33.04-80.25t80.24-33q10.38 0 22.05 2.66 11.67 2.67 24.67 7V-920H960v66.67h-86.67V-600q0 47.22-33.08 80.28-33.07 33.05-80.33 33.05Zm-519.92-40h280v-66.66H240v66.66Zm0-120h280v-66.66H240v66.66Zm-93.33 340v-506.66V-306.67Z"/></svg>
+            </button>
+            <button type="button" class="top-action-button settings-section-button" data-settings-section-target="milkdrop" aria-label="Milkdrop settings" aria-pressed="false" title="Milkdrop">
+                <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="currentColor" aria-hidden="true" focusable="false"><path d="M483-205.33q14.67-.34 23.17-6.84 8.5-6.5 8.5-17.83 0-12-8.67-18.83-8.67-6.84-24.67-6.5-41.66 1-86-25.17Q351-306.67 339-373.67q-2-9.66-9.5-15.66t-16.5-6q-12 0-19 9.16-7 9.17-4.67 19.84Q305-280 363.33-242q58.34 38 119.67 36.67ZM251.5-174Q160-268 160-408q0-100 79.5-217.5T480-880q161 137 240.5 254.5T800-408q0 140-91.5 234T480-80q-137 0-228.5-94Zm409.83-47.17q72-74.5 72-186.83 0-77-64.5-174.67-64.5-97.66-188.83-208.66-124.33 111-188.83 208.66Q226.67-485 226.67-408q0 112.33 72 186.83 72 74.5 181.33 74.5 109.33 0 181.33-74.5ZM480-480Z"/></svg>
+            </button>
+            <button type="button" class="top-action-button settings-section-button" data-settings-section-target="ntsc" aria-label="NTSC video effect settings" aria-pressed="false" title="NTSC Video Effect">
+                <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="38px" height="38px" viewBox="0 0 40 40" fill="currentColor" aria-hidden="true" focusable="false"><path d="M36.5,6h-33C2.75,6,2,6.75,2,7.5v24C2,32.328,2.671,33,3.5,33h33c0.828,0,1.5-0.672,1.5-1.5v-24 C38,6.672,37.328,6,36.5,6z M12,24h-2l-4-5.754V24H4v-9h2l4,5.754V15h2V24z M20,17h-2v7h-2v-7h-2v-2h6V17z M23.969,24 C22,24,21,24,21,24v-2c0,0,1,0,2.969,0C24.688,22,25,21.594,25,21.25c0-0.25-0.063-0.745-1-0.906C22,20,21,19,21,17.75 c0-1.5,1-2.75,3-2.75c1,0,2,0,2,0v2c0,0-1.031,0-2.031,0C23.5,17,23,17.167,23,17.636c0,0.531,0.511,0.766,0.969,0.864 C26.719,19.094,27,20,27,21.531C27,23,26,24,23.969,24z M32.5,24c-1.934,0-3.5-1.567-3.5-3.5v-2c0-1.933,1.566-3.5,3.5-3.5 c1.763,0,3.205,1.306,3.449,3h-2.041c-0.207-0.581-0.756-1-1.408-1c-0.828,0-1.5,0.672-1.5,1.5v2c0,0.828,0.672,1.5,1.5,1.5 c0.652,0,1.201-0.419,1.408-1h2.041C35.705,22.693,34.263,24,32.5,24z"></path></svg>
+            </button>
+            <button type="button" class="top-action-button settings-section-button" data-settings-section-target="vhs" aria-label="VHS video effect settings" aria-pressed="false" title="VHS Video Effect">
+                <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" focusable="false"><path d="M88 112a16 16 0 1 1-16-16a16 16 0 0 1 16 16Zm152-48v128a16 16 0 0 1-16 16H32a16 16 0 0 1-16-16V64a16 16 0 0 1 16-16h192a16 16 0 0 1 16 16Zm-54 128l-15.6-20.8a8 8 0 0 0-6.4-3.2H92a8 8 0 0 0-6.4 3.2L70 192Zm30-80a32 32 0 0 0-32-32H72a32 32 0 0 0 0 64h112a32 32 0 0 0 32-32ZM99.7 96a31.92 31.92 0 0 1 0 32h56.6a31.92 31.92 0 0 1 0-32Zm84.3 0a16 16 0 1 0 16 16a16 16 0 0 0-16-16Z"/></svg>
+            </button>
+            <button type="button" class="top-action-button settings-section-button" data-settings-section-target="player-style" aria-label="Player style settings" aria-pressed="false" title="Player Style">
+                <svg xmlns="http://www.w3.org/2000/svg" enable-background="new 0 0 20 20" height="40px" viewBox="0 0 20 20" width="40px" fill="currentColor" aria-hidden="true" focusable="false"><g><rect fill="none" height="20" width="20" x="0"/></g><g><g><path d="M3,5h14v4h1V5c0-0.55-0.45-1-1-1H3C2.45,4,2,4.45,2,5v10c0,0.55,0.45,1,1,1h8v-1H3V5z"/><path d="M19.1,14.2l0.87-0.69l-0.88-1.52l-1.03,0.4c-0.16-0.12-0.34-0.22-0.53-0.3L17.38,11h-1.75l-0.16,1.1 c-0.18,0.08-0.36,0.18-0.52,0.3l-1.04-0.41l-0.88,1.52l0.87,0.7c-0.02,0.2-0.03,0.4,0,0.6l-0.87,0.69l0.88,1.52l1.03-0.4 c0.16,0.12,0.34,0.22,0.53,0.3L15.63,18h1.75l0.16-1.1c0.18-0.08,0.36-0.18,0.52-0.3l1.04,0.41l0.88-1.52l-0.87-0.7 C19.12,14.59,19.12,14.4,19.1,14.2z M16.5,15.5c-0.55,0-1-0.45-1-1c0-0.55,0.45-1,1-1c0.55,0,1,0.45,1,1 C17.5,15.05,17.05,15.5,16.5,15.5z"/><polygon points="8,13 12.5,10 8,7"/></g></g></svg>
+            </button>
+            <button type="button" class="top-action-button settings-section-button" data-settings-section-target="api-key" aria-label="API key settings" aria-pressed="false" title="API Key">
+                <svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 0 24 24" width="40px" fill="currentColor" aria-hidden="true" focusable="false"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M22 19h-6v-4h-2.68c-1.14 2.42-3.6 4-6.32 4-3.86 0-7-3.14-7-7s3.14-7 7-7c2.72 0 5.17 1.58 6.32 4H24v6h-2v4zm-4-2h2v-4h2v-2H11.94l-.23-.67C11.01 8.34 9.11 7 7 7c-2.76 0-5 2.24-5 5s2.24 5 5 5c2.11 0 4.01-1.34 4.71-3.33l.23-.67H18v4zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3s-1.35 3-3 3zm0-4c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1s-.45-1-1-1z"/></svg>
+            </button>
+        </div>
+
+        <!-- Left: Audio & Controllers -->
+        <div class="player-panel">
+            <button class="album-art-container" id="play-button" aria-label="Play/Pause">
+                <img id="album-cover" src="" alt="Album Cover" class="album-cover" style="display: none;">
+                <div id="album-placeholder" class="album-placeholder"></div>
+                <div class="play-pause-overlay">
+                    <svg id="overlay-play-icon" viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="overlay-loading-icon" viewBox="0 0 24 24" width="48" height="48" style="display:none;" class="spinner"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="32" stroke-dashoffset="0"></circle></svg>
+                    <svg id="overlay-pause-icon" viewBox="0 0 24 24" width="48" height="48" fill="currentColor" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </div>
+            </button>
+
+            <div class="track-info">
+                <div class="title-container no-link">
+                    <span class="track-title" id="song-title">Connecting...</span>
+                    <span id="title-tooltip" class="title-tooltip">Click to copy link</span>
+                </div>
+                <p class="track-artists" id="song-artists">Please wait for synchronization</p>
+                <div class="track-progress-block">
+                    <div class="track-progress-bar" aria-hidden="true">
+                        <div class="track-progress-fill" id="track-progress-fill"></div>
+                    </div>
+                    <div class="track-status-row">
+                        <div class="status-inline status-sync" id="sync-status-badge" style="color: #f59e0b;">
+                            <!-- Active Lyrics SVG -->
+                            <svg id="sync-svg-lyrics" xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" style="flex-shrink: 0;">
+                                <g><rect fill="none" height="24" width="24"/></g>
+                                <g>
+                                    <g>
+                                        <path class="sync-svg-bg" d="M4,4v14l2-2h9v-4.03c-0.62-0.83-1-1.85-1-2.97c0-1.12,0.38-2.14,1-2.97V4H4z M10,14H6v-2h4V14z M13,11H6V9 h7V11z M13,8H6V6h7V8z" opacity=".3"/>
+                                        <path class="sync-svg-outline" d="M15,11.97V16H6l-2,2V4h11v2.03c0.52-0.69,1.2-1.25,2-1.6V4c0-1.1-0.9-2-2-2H4C2.9,2,2.01,2.9,2.01,4L2,22l4-4h9 c1.1,0,2-0.9,2-2v-2.42C16.2,13.22,15.52,12.66,15,11.97z"/>
+                                        <rect class="sync-svg-line-1" height="2" width="7" x="6" y="6"/>
+                                        <rect class="sync-svg-line-2" height="2" width="7" x="6" y="9"/>
+                                        <rect class="sync-svg-line-3" height="2" width="4" x="6" y="12"/>
+                                        <!-- Pulsing Music Note Group -->
+                                        <g class="sync-svg-note">
+                                            <path d="M20,6.18C19.69,6.07,19.35,6,19,6c-1.66,0-3,1.34-3,3c0,1.66,1.34,3,3,3s3-1.34,3-3V3h2V1h-4V6.18z"/>
+                                        </g>
+                                    </g>
+                                </g>
+                            </svg>
+                            <!-- Disabled Lyrics SVG -->
+                            <svg id="sync-svg-disabled" xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 0 24 24" width="18px" style="flex-shrink: 0; display: none;">
+                                <rect fill="none" height="24" width="24"/>
+                                <path class="sync-svg-disabled-bg" d="M6.83,4H20v12h-1.17l-2-2H18v-2h-3.17l-1-1H18V9h-6.17l-1-1H18V6H8.83L6.83,4z M13.17,16l-2-2H6v-2h3.17l-1-1 H6V9h0.17L4,6.83V16H13.17z" opacity=".3"/>
+                                <path class="sync-svg-disabled-outline" d="M18.83,16H20V4H6.83l-2-2H20c1.1,0,2,0.9,2,2l0,15.17L18.83,16z M18,6H8.83l2,2H18V6z M18,9h-6.17l2,2H18V9z M18,14v-2 h-3.17l2,2H18z M21.9,21.9l-1.41,1.41L15.17,18H4c-1.1,0-2-0.9-2-2V4.83L0.69,3.51L2.1,2.1L21.9,21.9z M13.17,16l-2-2H6v-2h3.17 l-1-1H6V9h0.17L4,6.83V16H13.17z"/>
+                            </svg>
+                            <!-- Connecting Sync SVG -->
+                            <svg id="sync-svg-connecting" xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" style="fill: var(--secondary); color: var(--secondary); flex-shrink: 0; display: none;">
+                                <path class="conn-svg-outer-left" d="M197,-197q-54,-54.33-85.5,-126.83T80,-480q0,-84 31.5,-156.5T197,-763l47.67,47.67Q199.33,-670 173,-609.67 146.67,-549.33 146.67,-480q0 69.67 26 129.67 26 60 72 105.66L197,-197Z"/>
+                                <path class="conn-svg-inner-left" d="M310,-310q-32,-32.33-51,-75.83T240,-480q0,-51 19,-94.5t51,-75.5l47.67,47.67Q334.33,-579 320.5,-547.67q-13.83,31.34-13.83,67.67t13.5,67.33q13.5 31 37.5 55L310,-310Z"/>
+                                <path class="conn-svg-center" d="M423.5,-423.5Q400,-447 400,-480t23.5,-56.5Q447,-560 480,-560t56.5,23.5Q560,-513 560,-480t-23.5,56.5Q513,-400 480,-400t-56.5,-23.5Z"/>
+                                <path class="conn-svg-inner-right" d="M650,-310l-47.67,-47.67q23.34,-23.33 37.17,-54.66 13.83,-31.34 13.83,-67.67t-13.5,-67.33q-13.5,-31-37.5,-55L650,-650q32,32 51,75.5t19,94.5q0,50-19,93.5T650,-310Z"/>
+                                <path class="conn-svg-outer-right" d="M763,-197l-47.67,-47.67Q760.67,-290 787,-350.33q26.33,-60.34 26.33-129.67 0-69.67-26-129.67-26-60-72-105.66L763,-763q54,54.67 85.5,127.17T880,-480q0,83-31.5,155.5T763,-197Z"/>
+                            </svg>
+                            <span id="sync-status">Connecting</span>
+                        </div>
+                        <div class="status-inline status-listeners" id="listener-count-badge">
+                            <span><span id="listener-count">0</span> listeners</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button id="minimize-player-btn" class="minimize-player-btn" aria-label="Minimize Player" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </button>
+
+        <!-- Middle: Auto-Scrolling Lyrics -->
+        <div class="lyrics-panel">
+            <div class="lyrics-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <span>Lyrics</span>
+            </div>
+
+            <div class="lyrics-container" id="scroll-panel">
+                <div class="lyrics-scroll-content" id="lyrics-body">
+                    <div class="lyric-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        <span>Waiting for synchronized audio stream to start</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Settings Panel -->
+        <div class="settings-panel" id="settings-panel">
+            <div class="lyrics-header">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>Settings</span>
+            </div>
+
+            <div id="settings-content" style="width: 100%; display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+                <section class="settings-section active" data-settings-section="lyrics">
+                <div class="settings-group-title">Lyrics</div>
+
+                <div class="settings-field lyric-sync-mode-field">
+                    <div class="effect-order-options sync-mode-options" role="group" aria-label="Lyric sync mode">
+                        <button type="button" class="effect-order-button lyric-sync-mode-button" data-lyrics-sync-mode="manual">Manual Sync</button>
+                        <button type="button" class="effect-order-button lyric-sync-mode-button" data-lyrics-sync-mode="auto">Auto Sync</button>
+                        <button type="button" class="effect-order-button lyric-sync-mode-button" data-lyrics-sync-mode="disabled">Disabled</button>
+                    </div>
+                </div>
+
+                <div id="lyric-options-group" class="settings-subgroup">
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Lyric Font</span>
+                        </div>
+                        <select id="lyrics-font-select" class="settings-select">
+                            <option value="vcrOsdMono" selected>VCR OSD Mono</option>
+                            <option value="pirataOne">Pirata One</option>
+                            <option value="workbench">Workbench</option>
+                            <option value="rubikBubbles">Rubik Bubbles</option>
+                            <option value="jollyLodger">Jolly Lodger</option>
+                            <option value="creepster">Creepster</option>
+                            <option value="jersey25Charted">Jersey 25 Charted</option>
+                            <option value="sixtyfour">Sixtyfour</option>
+                            <option value="yuyuShort">Yuyu Short</option>
+                            <option value="linefont">Linefont</option>
+                            <option value="nabla">Nabla</option>
+                        </select>
+                        <input type="text" id="lyrics-font-custom-input" class="settings-text-input" list="google-fonts-list" placeholder="e.g. Pacifico or Roboto">
+                    </div>
+
+                    <div id="delay-control-group" class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Timing Offset
+                                <button class="slider-edit-btn" data-slider-key="delay" aria-label="Edit slider limits" style="background: none; border: none; padding: 0; margin: 0; color: #6b7280; cursor: pointer; display: inline-flex; align-items: center; transition: color 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                </button>
+                            </span>
+                            <span id="delay-val" class="settings-value">2.0s</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="delay-slider" min="0" max="15" step="0.1" value="2.0" style="width: 100%;">
+                    </div>
+
+                    <div id="autosync-offset-control-group" class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Timing Offset
+                                <button class="slider-edit-btn" data-slider-key="autoSyncLyricsOffset" aria-label="Edit slider limits" style="background: none; border: none; padding: 0; margin: 0; color: #6b7280; cursor: pointer; display: inline-flex; align-items: center; transition: color 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                </button>
+                            </span>
+                            <span id="autosync-offset-val" class="settings-value">0.00s</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="autosync-offset-slider" min="-2" max="2" step="0.05" value="0" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Text Size
+                                <button class="slider-edit-btn" data-slider-key="lyricTextScale" aria-label="Edit slider limits" style="background: none; border: none; padding: 0; margin: 0; color: #6b7280; cursor: pointer; display: inline-flex; align-items: center; transition: color 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                </button>
+                            </span>
+                            <span id="lyrics-size-val" class="settings-value">125%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-size-slider" min="0.7" max="1.8" step="0.05" value="1.25" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Text Border</span>
+                            <span id="lyrics-border-val" class="settings-value">10px</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-border-slider" min="0" max="16" step="1" value="10" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Text Weight</span>
+                            <span id="lyrics-weight-val" class="settings-value">100</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-weight-slider" min="100" max="900" step="100" value="100" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Line Spacing</span>
+                            <span id="lyrics-line-height-val" class="settings-value">1.45</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-line-height-slider" min="0.8" max="3.0" step="0.05" value="1.45" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Word Spacing</span>
+                            <span id="lyrics-word-spacing-val" class="settings-value">0em</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-word-spacing-slider" min="-10" max="40" step="1" value="0" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Letter Spacing</span>
+                            <span id="lyrics-letter-spacing-val" class="settings-value">0px</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-letter-spacing-slider" min="-5" max="20" step="0.5" value="0" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Text Opacity Falloff
+                                <button class="slider-edit-btn" data-slider-key="lyricFadeCurve" aria-label="Edit slider limits" style="background: none; border: none; padding: 0; margin: 0; color: #6b7280; cursor: pointer; display: inline-flex; align-items: center; transition: color 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                </button>
+                            </span>
+                            <span id="lyrics-fade-val" class="settings-value">5.00</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-fade-slider" min="0.0" max="5.0" step="0.01" value="5.00" style="width: 100%;">
+                    </div>
+
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>Word Wrap Width</span>
+                            <span id="lyrics-wrap-val" class="settings-value">100%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="lyrics-wrap-slider" min="40" max="100" step="5" value="100" style="width: 100%;">
+                    </div>
+                </div>
+
+                </section>
+
+                <section class="settings-section" data-settings-section="milkdrop">
+                <div class="settings-group-title">Milkdrop</div>
+
+                <div class="settings-row">
+                    <span>Milkdrop Visualizer</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="visualizer-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="milkdrop-cycle-song-change-row">
+                    <span>Cycle on Song Change</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="milkdrop-cycle-song-toggle" style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-field" id="milkdrop-cycle-time-group" style="transition: opacity 0.3s ease;">
+                    <div class="settings-row settings-row-stack">
+                        <span>Cycle Time</span>
+                        <span id="milkdrop-cycle-val" class="settings-value">15s</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="milkdrop-cycle-slider" min="5" max="60" step="1" value="15" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Blend Time</span>
+                        <span id="milkdrop-blend-val" class="settings-value">3s</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="milkdrop-blend-slider" min="0" max="8" step="0.1" value="3.0" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Visualizer Opacity</span>
+                        <span id="viz-opacity-val" class="settings-value">80%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="viz-opacity-slider" min="0.1" max="1" step="0.05" value="0.8" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Frame Limit</span>
+                    </div>
+                    <select id="milkdrop-frame-limit-select" class="settings-select">
+                        <option value="0" selected>Unlimited</option>
+                        <option value="15">15 FPS</option>
+                        <option value="24">24 FPS</option>
+                        <option value="30">30 FPS</option>
+                        <option value="45">45 FPS</option>
+                        <option value="60">60 FPS</option>
+                    </select>
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Canvas Size</span>
+                    </div>
+                    <select id="milkdrop-canvas-size-select" class="settings-select">
+                        <option value="native" selected>Native / Full Screen</option>
+                        <option value="auto">Auto / Half Screen</option>
+                        <option value="1024">1024px Max Width</option>
+                        <option value="800">800px Max Width</option>
+                        <option value="640">640px Max Width</option>
+                        <option value="480">480px Max Width</option>
+                    </select>
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Mesh Size</span>
+                    </div>
+                    <select id="milkdrop-mesh-size-select" class="settings-select">
+                        <option value="32x24" selected>32x24 (Standard)</option>
+                        <option value="16x12">16x12 (Low)</option>
+                        <option value="48x36">48x36 (Medium)</option>
+                        <option value="64x48">64x48 (High)</option>
+                        <option value="96x72">96x72 (Very High)</option>
+                    </select>
+                </div>
+
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Presets</span>
+                        <div class="preset-toolbar" aria-label="Preset actions">
+                            <button type="button" id="milkdrop-select-all-btn" class="settings-button">All</button>
+                            <button type="button" id="milkdrop-select-none-btn" class="settings-button">None</button>
+                            <button type="button" id="milkdrop-random-btn" class="settings-button">Random</button>
+                        </div>
+                    </div>
+                    <div id="milkdrop-preset-list" class="preset-checklist" aria-label="Milkdrop presets">
+                        <div class="settings-status">Loading Webamp presets</div>
+                    </div>
+                </div>
+
+
+                </section>
+
+                <section class="settings-section" data-settings-section="ntsc">
+                <div class="settings-group-title">NTSC Video Effect</div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Amount</span>
+                        <span id="ntsc-amount-val" class="settings-value">100%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="ntsc-amount-slider" min="0" max="1" step="0.01" value="1" style="width: 100%;">
+                </div>
+
+                <div id="ntsc-settings-group" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>NTSC Smear Amount</span>
+                            <span id="ntsc-smear-val" class="settings-value">200%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="ntsc-smear-slider" min="0" max="2" step="0.05" value="2.0" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>NTSC Wiggle Amount</span>
+                            <span id="ntsc-wiggle-val" class="settings-value">200%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="ntsc-wiggle-slider" min="0" max="2" step="0.05" value="2.0" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>NTSC Wiggle Speed</span>
+                            <span id="ntsc-wiggle-speed-val" class="settings-value">25</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="ntsc-wiggle-speed-slider" min="0" max="60" step="1" value="25" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>NTSC Chroma Shift</span>
+                            <span id="ntsc-chroma-shift-val" class="settings-value">100%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="ntsc-chroma-shift-slider" min="0" max="3" step="0.05" value="1" style="width: 100%;">
+                    </div>
+                </div>
+
+                </section>
+
+                <section class="settings-section" data-settings-section="vhs">
+                <div class="settings-group-title">VHS Video Effect</div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Amount</span>
+                        <span id="vhs-amount-val" class="settings-value">100%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="vhs-amount-slider" min="0" max="1" step="0.01" value="1" style="width: 100%;">
+                </div>
+
+                <div id="vhs-settings-group" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Distortion Strength</span>
+                            <span id="vhs-strength-val" class="settings-value">30%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-strength-slider" min="0" max="2" step="0.05" value="0.3" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Noise & Grain</span>
+                            <span id="vhs-noise-val" class="settings-value">40%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-noise-slider" min="0" max="2" step="0.05" value="0.4" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Grain Size</span>
+                            <span id="vhs-grain-size-val" class="settings-value">2.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-grain-size-slider" min="0.5" max="8" step="0.1" value="2" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Vignette</span>
+                            <span id="vhs-vignette-val" class="settings-value">100%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-vignette-slider" min="0" max="1" step="0.01" value="1" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Blur</span>
+                            <span id="vhs-blur-val" class="settings-value">0.010</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-blur-slider" min="0" max="0.5" step="0.001" value="0.010" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Luma Resolution</span>
+                            <span id="vhs-luma-resolution-val" class="settings-value">50%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-luma-resolution-slider" min="0.1" max="1" step="0.05" value="0.5" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Chroma Resolution</span>
+                            <span id="vhs-chroma-resolution-val" class="settings-value">3.1%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-chroma-resolution-slider" min="0.01" max="0.25" step="0.005" value="0.03125" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Field Line Height</span>
+                            <span id="vhs-line-height-val" class="settings-value">2.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-line-height-slider" min="1" max="8" step="0.5" value="2" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Sharpen Amount</span>
+                            <span id="vhs-sharpen-val" class="settings-value">2.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-sharpen-slider" min="0" max="5" step="0.1" value="2" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Sharpen Radius</span>
+                            <span id="vhs-sharpen-radius-val" class="settings-value">4.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-sharpen-radius-slider" min="0" max="12" step="0.25" value="4" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Black Level</span>
+                            <span id="vhs-black-level-val" class="settings-value">10%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-black-level-slider" min="0" max="1" step="0.01" value="0.1" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS White Level</span>
+                            <span id="vhs-white-level-val" class="settings-value">90%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-white-level-slider" min="0" max="1" step="0.01" value="0.9" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Saturation</span>
+                            <span id="vhs-saturation-val" class="settings-value">75%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-saturation-slider" min="0" max="2" step="0.05" value="0.75" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Shadow Tint</span>
+                            <span id="vhs-shadow-tint-val" class="settings-value">#B300E6</span>
+                        </div>
+                        <input type="color" class="settings-color-input" id="vhs-shadow-tint-picker" value="#b300e6">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Tracking Speed</span>
+                            <span id="vhs-tracking-speed-val" class="settings-value">8.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-tracking-speed-slider" min="1" max="20" step="0.5" value="8" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Tracking Offset</span>
+                            <span id="vhs-tracking-offset-val" class="settings-value">8</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-tracking-offset-slider" min="0" max="40" step="1" value="8" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Tracking Jitter</span>
+                            <span id="vhs-tracking-jitter-val" class="settings-value">20</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-tracking-jitter-slider" min="0" max="80" step="1" value="20" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Wave Frequency</span>
+                            <span id="vhs-wave-frequency-val" class="settings-value">70</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-wave-frequency-slider" min="0" max="160" step="1" value="70" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Wave Amount</span>
+                            <span id="vhs-wave-amount-val" class="settings-value">1.00</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-wave-amount-slider" min="0" max="5" step="0.05" value="1" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Bottom Warp Height</span>
+                            <span id="vhs-bottom-warp-height-val" class="settings-value">15</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-bottom-warp-height-slider" min="0" max="80" step="1" value="15" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Bottom Warp Offset</span>
+                            <span id="vhs-bottom-warp-offset-val" class="settings-value">100</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-bottom-warp-offset-slider" min="0" max="250" step="5" value="100" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Bottom Warp Jitter</span>
+                            <span id="vhs-bottom-warp-jitter-val" class="settings-value">50</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-bottom-warp-jitter-slider" min="0" max="150" step="5" value="50" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Static Line Height</span>
+                            <span id="vhs-static-line-height-val" class="settings-value">6.0</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-static-line-height-slider" min="0" max="24" step="0.5" value="6" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Static Line Opacity</span>
+                            <span id="vhs-static-line-opacity-val" class="settings-value">30%</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-static-line-opacity-slider" min="0" max="1" step="0.01" value="0.3" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Vignette Shape</span>
+                            <span id="vhs-vignette-power-val" class="settings-value">0.25</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-vignette-power-slider" min="0.05" max="1" step="0.01" value="0.25" style="width: 100%;">
+                    </div>
+                    <div class="settings-field">
+                        <div class="settings-row settings-row-stack">
+                            <span>VHS Vignette Boost</span>
+                            <span id="vhs-vignette-boost-val" class="settings-value">2.20</span>
+                        </div>
+                        <input type="range" class="volume-slider" id="vhs-vignette-boost-slider" min="0.5" max="4" step="0.05" value="2.2" style="width: 100%;">
+                    </div>
+                </div>
+
+                </section>
+
+                <section class="settings-section" data-settings-section="api-key">
+                <div class="settings-group-title">API Key</div>
+                <div class="settings-row">
+                    <span>Enable API Key</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="apikey-toggle" style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+                <div id="apikey-settings-group" style="display: none; flex-direction: column; gap: 8px; width: 100%;">
+                    <div style="font-size: 13px; font-weight: 600; color: #9ca3af;">API Key</div>
+                    <input type="password" id="apikey-input" placeholder="Enter API Key" style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); font-size: 12px; outline: none; background: rgba(0,0,0,0.2); color: white;">
+                </div>
+
+                </section>
+
+                <!-- Section 3: Player Style -->
+                <section class="settings-section" data-settings-section="player-style">
+                <div class="settings-group-title">Player Style</div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Player Font</span>
+                    </div>
+                    <select id="player-font-select" class="settings-select">
+                        <option value="vcrOsdMono" selected>VCR OSD Mono</option>
+                        <option value="pirataOne">Pirata One</option>
+                        <option value="workbench">Workbench</option>
+                        <option value="rubikBubbles">Rubik Bubbles</option>
+                        <option value="jollyLodger">Jolly Lodger</option>
+                        <option value="creepster">Creepster</option>
+                        <option value="jersey25Charted">Jersey 25 Charted</option>
+                        <option value="sixtyfour">Sixtyfour</option>
+                        <option value="yuyuShort">Yuyu Short</option>
+                        <option value="linefont">Linefont</option>
+                        <option value="nabla">Nabla</option>
+                    </select>
+                    <input type="text" id="player-font-custom-input" class="settings-text-input" list="google-fonts-list" placeholder="e.g. Pacifico or Roboto">
+                </div>
+
+                <div class="settings-row" id="player-apply-effects-row">
+                    <span>Apply Effects</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="player-apply-effects-toggle" style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="player-text-highlight-row" style="display: none;">
+                    <span>Highlight Text</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="player-text-highlight-toggle" style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Title Text Colour</span>
+                        <span id="player-title-color-val" class="settings-value">#FFFFFF</span>
+                    </div>
+                    <input type="color" class="settings-color-input" id="player-title-color-picker" value="#ffffff">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Artist Text Colour</span>
+                        <span id="player-artist-color-val" class="settings-value">#9CA3AF</span>
+                    </div>
+                    <input type="color" class="settings-color-input" id="player-artist-color-picker" value="#9ca3af">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Title Font Size</span>
+                        <span id="player-title-font-size-val" class="settings-value">24px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-title-font-size-slider" min="8" max="72" step="1" value="24" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Artist Font Size</span>
+                        <span id="player-artist-font-size-val" class="settings-value">20px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-artist-font-size-slider" min="8" max="72" step="1" value="20" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Title/Artist Gap</span>
+                        <span id="player-text-gap-val" class="settings-value">-1px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-text-gap-slider" min="-16" max="32" step="1" value="-1" style="width: 100%;">
+                </div>
+
+                <div class="settings-field" id="player-text-blend-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Text Blend Mode</span>
+                    </div>
+                    <select id="player-text-blend-select" class="settings-select">
+                        <option value="normal" selected>Normal</option>
+                        <option value="multiply">Multiply</option>
+                        <option value="screen">Screen</option>
+                        <option value="overlay">Overlay</option>
+                        <option value="darken">Darken</option>
+                        <option value="lighten">Lighten</option>
+                        <option value="color-dodge">Color Dodge</option>
+                        <option value="color-burn">Color Burn</option>
+                        <option value="hard-light">Hard Light</option>
+                        <option value="soft-light">Soft Light</option>
+                        <option value="difference">Difference</option>
+                        <option value="exclusion">Exclusion</option>
+                        <option value="hue">Hue</option>
+                        <option value="saturation">Saturation</option>
+                        <option value="color">Color</option>
+                        <option value="luminosity">Luminosity</option>
+                        <option value="plus-darker">Plus Darker</option>
+                        <option value="plus-lighter">Plus Lighter</option>
+                    </select>
+                </div>
+
+
+                <div class="settings-field" id="player-align-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Align Modal</span>
+                    </div>
+                    <div class="effect-order-options player-align-options" role="group" aria-label="Player modal alignment">
+                        <button type="button" class="effect-order-button player-align-button" data-player-align="left" aria-pressed="false">Left</button>
+                        <button type="button" class="effect-order-button player-align-button active" data-player-align="center" aria-pressed="true">Center</button>
+                    </div>
+                </div>
+
+                <div class="settings-field" id="player-modal-width-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Modal Width</span>
+                        <span id="player-modal-width-val" class="settings-value">1120px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-modal-width-slider" min="0" max="1120" step="10" value="1120" style="width: 100%;">
+                </div>
+
+                <!-- Scale Slider -->
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Scale</span>
+                        <span id="player-scale-val" class="settings-value">90%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-scale-slider" min="0.5" max="2.0" step="0.05" value="0.9" style="width: 100%;">
+                </div>
+
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Edge Gap</span>
+                        <span id="player-edge-gap-val" class="settings-value">20px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-edge-gap-slider" min="0" max="80" step="1" value="20" style="width: 100%;">
+                </div>
+
+                <div class="settings-field" id="album-art-size-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Album Art Size
+                            <button class="slider-edit-btn" data-slider-key="albumArtSize" aria-label="Edit slider limits" style="background: none; border: none; padding: 0; margin: 0; color: #6b7280; cursor: pointer; display: inline-flex; align-items: center; transition: color 0.2s;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                        </span>
+                        <span id="album-art-size-val" class="settings-value">92px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="album-art-size-slider" min="32" max="256" step="1" value="92" style="width: 100%;">
+                </div>
+
+                <div class="settings-row" id="show-track-info-row">
+                    <span>Show Track Info</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="show-track-info-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="show-album-art-row">
+                    <span>Show Album Art</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="show-album-art-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="show-progress-bar-row">
+                    <span>Show Progress Bar</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="show-progress-bar-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="show-sync-status-row">
+                    <span>Show Sync Status</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="show-sync-status-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="show-listener-number-row">
+                    <span>Show Listener Number</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="show-listener-number-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row" id="liquid-glass-row">
+                    <span>Liquid Glass</span>
+                    <label class="switch-container" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" id="liquid-glass-toggle" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="switch-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .4s; border-radius: 24px; border: 1px solid var(--border);"></span>
+                    </label>
+                </div>
+
+                <div id="liquid-glass-settings-group" class="settings-subgroup">
+                <!-- Glass Opacity Slider -->
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Glass Opacity</span>
+                        <span id="player-opacity-val" class="settings-value">35%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-opacity-slider" min="0.0" max="1.0" step="0.05" value="0.35" style="width: 100%;">
+                </div>
+
+                <!-- Frostiness Slider -->
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Frostiness</span>
+                        <span id="player-blur-val" class="settings-value">5px</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-blur-slider" min="0" max="40" step="1" value="5" style="width: 100%;">
+                </div>
+
+                <!-- Card Outline Slider -->
+                <div class="settings-field">
+                    <div class="settings-row settings-row-stack">
+                        <span>Card Outline</span>
+                        <span id="player-border-val" class="settings-value">100%</span>
+                    </div>
+                    <input type="range" class="volume-slider" id="player-border-slider" min="0.0" max="1.0" step="0.05" value="1.0" style="width: 100%;">
+                </div>
+                </div>
+
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Player Button (Hidden by default) -->
+    <button id="restore-player-btn" style="display: none;" aria-label="Restore Player Modal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+        Show Player
+    </button>
+
+    <!-- Slider Config Modal -->
+    <div id="slider-config-modal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content">
+            <h3 id="modal-slider-title" style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600; color: #f3f4f6;">Edit Slider Limits</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="modal-min-input" style="font-size: 11px; font-weight: 600; color: #9ca3af;">Minimum Value</label>
+                    <input type="number" id="modal-min-input" step="any" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #fff; font-size: 13px; outline: none;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="modal-max-input" style="font-size: 11px; font-weight: 600; color: #9ca3af;">Maximum Value</label>
+                    <input type="number" id="modal-max-input" step="any" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #fff; font-size: 13px; outline: none;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label for="modal-step-input" style="font-size: 11px; font-weight: 600; color: #9ca3af;">Step size</label>
+                    <input type="number" id="modal-step-input" step="any" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #fff; font-size: 13px; outline: none;">
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                <button type="button" id="modal-cancel-btn" style="padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: #cbd5e1; font-size: 12px; cursor: pointer; font-weight: 600;">Cancel</button>
+                <button type="button" id="modal-save-btn" style="padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); color: #fff; font-size: 12px; cursor: pointer; font-weight: 600;">Save Limits</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="search-modal" class="modal-backdrop" style="display: none; align-items: center; justify-content: center; z-index: 10000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3) !important; backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;">
+        <div class="modal-content search-modal-content" style="width: 500px !important; max-width: 90% !important; max-height: 80vh; display: flex; flex-direction: column; gap: 15px; background: rgba(22, 18, 36, 0.82) !important; backdrop-filter: blur(24px) saturate(120%) !important; -webkit-backdrop-filter: blur(24px) saturate(120%) !important; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow: hidden; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 5px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--secondary);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    Search
+                </h3>
+                <button id="close-search-btn" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <input type="text" id="search-input" placeholder="Search tracks, artists, albums..." style="flex-grow: 1; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); font-size: 14px; outline: none; background: rgba(0,0,0,0.25); color: white;">
+                <button id="search-btn" style="padding: 10px 16px; border-radius: 12px; border: none; background: var(--secondary); color: white; font-weight: bold; cursor: pointer; transition: transform 0.2s;">Search</button>
+            </div>
+            <div style="display: flex; gap: 8px; width: 100%;">
+                <button class="search-cat-btn active" data-cat="track" style="flex-grow: 1; padding: 6px; border-radius: 8px; border: 1px solid var(--secondary); background: rgba(245, 158, 11, 0.1); color: var(--secondary); font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">Tracks</button>
+                <button class="search-cat-btn" data-cat="artist" style="flex-grow: 1; padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #9ca3af; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">Artists</button>
+                <button class="search-cat-btn" data-cat="album" style="flex-grow: 1; padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #9ca3af; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">Albums</button>
+                <button class="search-cat-btn" data-cat="playlist" style="flex-grow: 1; padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); color: #9ca3af; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">Playlists</button>
+            </div>
+            <div id="search-results" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 10px;">
+                <div style="color: #6b7280; text-align: center; margin-top: 40px; font-size: 14px;">Enter a query to search</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Switch Playlist Modal -->
+    <div id="playlist-modal" class="modal-backdrop" style="display: none; align-items: center; justify-content: center; z-index: 10000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3) !important; backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;">
+        <div class="modal-content" style="width: 400px !important; max-width: 90% !important; max-height: 70vh; display: flex; flex-direction: column; gap: 15px; background: rgba(22, 18, 36, 0.82) !important; backdrop-filter: blur(24px) saturate(120%) !important; -webkit-backdrop-filter: blur(24px) saturate(120%) !important; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow-y: auto; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 5px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: bold; color: white; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    Switch Playlist
+                </h3>
+                <button id="close-playlist-btn" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            </div>
+            <!-- Playlists List -->
+            <div id="playlist-list-container" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                <!-- Dynamic list will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Non-blocking playlist name input -->
+    <div id="playlist-name-modal" class="modal-backdrop" style="display: none;">
+        <form id="playlist-name-form" class="modal-content playlist-name-content" novalidate>
+            <div class="playlist-name-heading">
+                <div>
+                    <h3>Create New Playlist</h3>
+                    <p>Names use ASCII letters and numbers.</p>
+                </div>
+                <button type="button" id="playlist-name-close" class="modal-close-button" aria-label="Close playlist name input">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <label for="playlist-name-input">Playlist name</label>
+            <input id="playlist-name-input" type="text" inputmode="text" autocomplete="off" maxlength="80" placeholder="MyPlaylist" pattern="[A-Za-z0-9]+">
+            <p id="playlist-name-error" class="playlist-name-error" role="alert"></p>
+            <div class="playlist-name-actions">
+                <button type="button" id="playlist-name-cancel">Cancel</button>
+                <button type="submit" id="playlist-name-submit">Create</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="player-notice-region" class="player-notice-region" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- Active Playlist Tracks Modal -->
+    <div id="active-playlist-modal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content active-playlist-content">
+            <div class="active-playlist-header">
+                <div class="active-playlist-heading">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="28px" viewBox="0 -960 960 960" width="28px" fill="currentColor" aria-hidden="true" focusable="false"><path d="M490.67-342Q532-342 561-370.61q29-28.62 29-70.06V-682h117.33v-66.67H550v231.34q-11.67-9.34-26.88-14.34-15.21-5-32.45-5-40.04 0-67.69 27.91-27.65 27.92-27.65 68.34T422.98-371q27.65 29 67.69 29ZM280-213.33q-27 0-46.83-19.84Q213.33-253 213.33-280v-533.33q0-27 19.84-46.84Q253-880 280-880h533.33q27 0 46.84 19.83Q880-840.33 880-813.33V-280q0 27-19.83 46.83-19.84 19.84-46.84 19.84H280Zm0-66.67h533.33v-533.33H280V-280ZM146.67-80q-27 0-46.84-19.83Q80-119.67 80-146.67v-600h66.67v600h600V-80h-600ZM280-813.33V-280v-533.33Z"/></svg>
+                    <div>
+                        <h3>Active Playlist</h3>
+                        <p id="active-playlist-summary">Loading tracks…</p>
+                    </div>
+                </div>
+                <button type="button" id="close-active-playlist-btn" class="modal-close-button" aria-label="Close Active Playlist">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div id="active-playlist-track-list" class="active-playlist-track-list">
+                <div class="active-playlist-empty">Loading tracks…</div>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="google-fonts-list">__GOOGLE_FONTS_DATALIST_OPTIONS__</datalist>
+
+    <!-- SVG Gamma Filter -->
+    <svg style="display: none;" aria-hidden="true">
+        <filter id="gamma-filter">
+            <feComponentTransfer>
+                <feFuncR type="gamma" exponent="1.0" id="gamma-func-r"/>
+                <feFuncG type="gamma" exponent="1.0" id="gamma-func-g"/>
+                <feFuncB type="gamma" exponent="1.0" id="gamma-func-b"/>
+            </feComponentTransfer>
+        </filter>
+    </svg>
+
+    <!-- Hidden HTML5 Audio Element -->
+    <audio id="audio-stream" data-listen-endpoint="{listen_endpoint}" preload="none" crossorigin="anonymous" muted></audio>
+
+    <script src="{player_assets_endpoint}/vendor/ogg-vorbis-decoder.min.js" charset="UTF-8"></script>
+    <script id="player-runtime-config" type="application/json">{"streamIsOgg":{stream_is_ogg},"streamIsPassthrough":{stream_is_passthrough},"listenEndpoint":"{listen_endpoint}","playerEndpoint":"{player_endpoint}","playerServiceWorkerEndpoint":"{player_service_worker_endpoint}","projectDefaults":__PLAYER_DEFAULTS_JSON__}</script>
+    <script src="./js/000-player.js"></script>
+</body>
+</html>

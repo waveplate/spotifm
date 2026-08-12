@@ -1,0 +1,126 @@
+# ==========================================
+# HTTPS, REST API & OAuth Server Configuration
+# ==========================================
+
+# IP address for both HTTP and HTTPS servers to bind to
+# api_ip = "0.0.0.0"
+
+# Port number for the non-TLS HTTP server
+api_port = 3333
+
+# Port number for the HTTPS server
+tls_port = 3443
+
+# tls_cert = "/etc/letsencrypt/live/radio.example/fullchain.pem"
+# tls_key = "/etc/letsencrypt/live/radio.example/privkey.pem"
+
+# ===> Spotify Client ID for API authentication (borrowed from ncspot)
+# The default client_id will allow you to use http://127.0.0.1:8898/login as the redirect URI
+client_id = "d420a117a32841c2b3474932e49fb54b"
+
+# ===> OAuth redirect URI
+redirect_uri = "http://127.0.0.1:8898/login"
+
+# ===> OAuth listener IP
+oauth_ip = "0.0.0.0"
+
+# ===> OAuth listener port override
+# The default behaviour is that spotifm will listen on whichever port is suggested by the redirect_uri
+# This option is mainly to port forwards
+# oauth_port = 8898
+
+# Prevent the server from automatically opening the Spotify authorization page
+no_browser = false
+
+# File path to save the Spotify OAuth authorization URL (for interoperability, optional)
+# url_file = "oauth_authorize_url.txt"
+
+# ==========================================
+# Web Player Configuration
+# ==========================================
+
+# Local player path.
+# Set this to a directory containing index.html or a direct path to index.html.
+# The --player flag requires a local directory or index.html path.
+player = "player"
+
+# URL path at which the web player is served
+player_endpoint = "/"
+
+# ==========================================
+# GStreamer Audio Streaming Configuration
+# ==========================================
+
+# Spotify source bitrate in kbps (96, 160, or 320). The value is also available
+# as {bitrate} in a custom GStreamer pipeline.
+bitrate = 320
+
+# GStreamer broadcast queue size capacity (broadcast buffer size)
+# Lower values reduce lag and audio backlog during track transitions (e.g. skips)
+# Default is 32 (keeps latency under 0.2 seconds)
+queue_size = 32
+
+# GStreamer appsink maximum buffer count
+max_buffers = 10
+
+# Stream silence chunk interval in milliseconds
+# Used to generate continuous silence frames if the Spotify player is idle
+silence_interval = 40
+
+# Audio pipeline to use: passthrough, opus, vorbis, mp3, or a custom name
+pipeline = "passthrough"
+
+# URL path at which the live audio stream is served
+stream_endpoint = "/listen"
+
+# ==========================================
+# Synced Lyrics & WebSockets Configuration
+# ==========================================
+
+# Interval in milliseconds at which the lyrics synchronization playhead positions are broadcasted
+# Default is 250 (updates clients 4 times per second)
+lyrics_interval = 250
+
+# Broadcast channel capacity for WebSockets clients
+# Determines how many messages can be buffered in memory for slower clients
+capacity = 1024
+
+# ==========================================
+# Named GStreamer Pipelines
+# ==========================================
+# Spotifm ships with built-in `mp3`, `vorbis`, and `opus` pipeline names.
+# Entries here can override those built-ins or add new named pipelines.
+#
+# CRITICAL REQUIREMENTS:
+# 1. Must define an `appsrc` named `src`: `appsrc name=src ...`
+# 2. Must define an `appsink` named `sink`: `... appsink name=sink ...`
+#
+# Available template variables:
+#   {bitrate}
+#   {max_buffers}
+#
+[gst_pipelines]
+mp3 = "appsrc name=src format=time is-live=true block=false max-time=10000000000 leaky-type=downstream caps=audio/x-raw,format=S16LE,rate=44100,channels=2,layout=interleaved ! audioconvert ! audioresample ! lamemp3enc bitrate={bitrate} ! appsink name=sink max-buffers={max_buffers} drop=true"
+vorbis = "appsrc name=src format=time is-live=true block=false max-time=10000000000 leaky-type=downstream caps=audio/x-raw,format=S16LE,rate=44100,channels=2,layout=interleaved ! audioconvert ! audioresample ! vorbisenc ! oggmux max-delay=20000000 max-page-delay=20000000 ! appsink name=sink max-buffers={max_buffers} drop=true"
+opus = "appsrc name=src format=time is-live=true block=false max-time=10000000000 leaky-type=downstream caps=audio/x-raw,format=S16LE,rate=44100,channels=2,layout=interleaved ! audioconvert ! audioresample ! opusenc ! oggmux max-delay=20000000 max-page-delay=20000000 ! appsink name=sink max-buffers={max_buffers} drop=true"
+
+# ==========================================
+# API Authentication & Key Management
+# ==========================================
+# You can define API keys with specific permissions (scopes) to wall off endpoints.
+#
+# Supported scopes: queue, play, skip, playlist, search
+#
+# Use "*" to grant all permissions.
+# If no api_key blocks are configured, the scoped API routes are public.
+# These keys do not protect the player, audio stream, lyrics/WebSocket endpoints,
+# or read-only telemetry. Use an authenticated reverse proxy to restrict the
+# whole instance.
+#
+# [[api_key]]
+# key = "some_key"
+# scope = ["*"]
+#
+# [[api_key]]
+# key = "some_other_key"
+# scope = ["queue", "search"]

@@ -1,0 +1,1900 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Spotifm API",
+    "description": "personal web radio server powered by Spotify.",
+    "version": "3.0.7-alpha"
+  },
+  "servers": [
+    {
+      "url": "https://localhost:3443",
+      "description": "Local Spotifm HTTPS server"
+    },
+    {
+      "url": "http://localhost:3333",
+      "description": "Local Spotifm HTTP server"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyHeader": []
+    },
+    {
+      "BearerAuth": []
+    },
+    {
+      "ApiKeyQuery": []
+    },
+    {}
+  ],
+  "paths": {
+    "/search/{category}/{limit}": {
+      "get": {
+        "summary": "Search Spotify",
+        "description": "Search tracks, albums, artists, or playlists by query.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/ExtendedTrack"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SimpleAlbum"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SimpleArtist"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SimplePlaylist"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category or limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/np": {
+      "get": {
+        "summary": "Now Playing",
+        "description": "Returns a snapshot of the currently playing track.",
+        "responses": {
+          "200": {
+            "description": "Current track details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/play/{category}/{id}": {
+      "get": {
+        "summary": "Play tracks by category and ID",
+        "description": "Play tracks resolved from a track, album, artist, or playlist.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "playlist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Optional playlist to switch to or append to."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The playing track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category or playlist name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Spotify API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/play/{category}": {
+      "get": {
+        "summary": "Play first search result",
+        "description": "Search Spotify in the given category and play tracks resolved from the first result.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "playlist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Optional playlist to switch to or append to."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The playing track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category or playlist name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Spotify API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skip": {
+      "get": {
+        "summary": "Skip track",
+        "description": "Skip to the next track with a single playback load.",
+        "responses": {
+          "200": {
+            "description": "The playing track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/skip/{value}": {
+      "get": {
+        "summary": "Skip tracks or grouping",
+        "description": "Pass a non-zero integer to advance by that many tracks, or pass `album` or `artist` to advance to a different grouping.",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "not": {
+                    "enum": [
+                      0
+                    ]
+                  }
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "album",
+                    "artist"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The playing track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/next": {
+      "get": {
+        "summary": "Get next track",
+        "description": "Retrieve the upcoming track in the queue/playlist.",
+        "responses": {
+          "200": {
+            "description": "The upcoming track details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No next track",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue": {
+      "get": {
+        "summary": "Get queue",
+        "description": "Returns the list of transient queued tracks.",
+        "responses": {
+          "200": {
+            "description": "List of tracks in queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{category}/{id}": {
+      "get": {
+        "summary": "Queue tracks by category and ID",
+        "description": "Queue tracks resolved from a track, album, artist, or playlist without interrupting playback.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The queued track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category or unresolved tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Spotify API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/{value}": {
+      "get": {
+        "summary": "Queue first search result",
+        "description": "Search Spotify in the given category and queue tracks resolved from the first result.",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The queued track status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Spotify API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Dequeue track",
+        "description": "Removes a track from the transient queue.",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Track not found in queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist": {
+      "get": {
+        "summary": "Get active playlist tracks",
+        "description": "Returns tracks in the current active playlist.",
+        "responses": {
+          "200": {
+            "description": "List of tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlists": {
+      "get": {
+        "summary": "List playlist details",
+        "description": "Returns a list of saved playlists on disk with detailed information.",
+        "responses": {
+          "200": {
+            "description": "Saved playlist details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlaylistInfo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/switch/{name}": {
+      "get": {
+        "summary": "Switch active playlist",
+        "description": "Switch active playlist by name. If not present, creates it.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/shuffle": {
+      "get": {
+        "summary": "Shuffle active playlist",
+        "description": "Shuffles the active playlist tracks.",
+        "responses": {
+          "200": {
+            "description": "Shuffled playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/shuffle/{name}": {
+      "get": {
+        "summary": "Shuffle named playlist",
+        "description": "Shuffles the named playlist tracks.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shuffled playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/sort": {
+      "get": {
+        "summary": "Sort active playlist",
+        "description": "Sorts the active playlist by artist, album, or source Spotify playlist.",
+        "parameters": [
+          {
+            "name": "by",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "artist",
+                "album",
+                "playlist"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sorted playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid sort key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/{name}/sort": {
+      "get": {
+        "summary": "Sort named playlist",
+        "description": "Sorts the named playlist by artist, album, or source Spotify playlist.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "artist",
+                "album",
+                "playlist"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sorted playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid playlist name or sort key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/track/{track_id}": {
+      "delete": {
+        "summary": "Remove playlist track",
+        "description": "Removes track from the current active playlist.",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/track/{track_id}/play": {
+      "get": {
+        "summary": "Play active playlist track",
+        "description": "Immediately plays a track from the current active playlist without changing playlists or reordering tracks.",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The selected track is playing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowPlaying"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Track is not in the active playlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/{playlist_name}/add": {
+      "post": {
+        "summary": "Add tracks to playlist (JSON)",
+        "description": "Resolves Spotify objects (tracks, albums, artists, playlists) and appends them using a JSON body.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistTracksBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "added_tracks": {
+                      "type": "integer"
+                    },
+                    "total_tracks": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Add tracks to playlist",
+        "description": "Resolves Spotify objects (tracks, albums, artists, playlists) and appends them.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tracks[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "albums[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "artists[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "playlists[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "added_tracks": {
+                      "type": "integer"
+                    },
+                    "total_tracks": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/{playlist_name}/where": {
+      "post": {
+        "summary": "Batch remove tracks (JSON)",
+        "description": "Removes matching tracks, or tracks belonging to matching albums/artists/playlists using a JSON body.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaylistTracksBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Batch remove tracks",
+        "description": "Removes matching tracks, or tracks belonging to matching albums/artists/playlists.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tracks[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "albums[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "artists[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "playlists[]",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/playlist/{playlist_name}": {
+      "get": {
+        "summary": "Get playlist tracks",
+        "description": "Returns the list of tracks for the named playlist.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlist tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackItem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Playlist not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete playlist",
+        "description": "Deletes the named playlist from disk.",
+        "parameters": [
+          {
+            "name": "playlist_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lyrics": {
+      "get": {
+        "summary": "Get current lyrics state",
+        "description": "Returns the cached lyrics state for the current track.",
+        "responses": {
+          "200": {
+            "description": "Lyrics state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LyricsData"
+                    },
+                    {
+                      "$ref": "#/components/schemas/NoLyricsData"
+                    },
+                    {
+                      "$ref": "#/components/schemas/IdleData"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth": {
+      "get": {
+        "summary": "Start or inspect OAuth authorization",
+        "description": "Redirects to the Spotify authorization page when authorization is still pending. Once Spotifm is already authorized, returns a small informational HTML page instead.",
+        "responses": {
+          "200": {
+            "description": "OAuth is already authorized",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to Spotify authorization"
+          }
+        }
+      }
+    },
+    "/api/privs": {
+      "get": {
+        "summary": "Inspect API authentication privileges",
+        "description": "Returns whether API-key authentication is enabled and the permissions granted to the supplied key.",
+        "parameters": [
+          {
+            "name": "X-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "api_key",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authentication status and permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthInfoResponse"
+                }
+              }
+            },
+            "headers": {
+              "location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Serve web player",
+        "description": "Serves the HTML5 web player from the configured local player path. This path is configurable with player_endpoint.",
+        "responses": {
+          "200": {
+            "description": "Web player HTML",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/minimal": {
+      "get": {
+        "summary": "Serve minimal web player",
+        "description": "Serves minimal.html from the configured local player path. This path is relative to player_endpoint.",
+        "responses": {
+          "200": {
+            "description": "Minimal web player HTML",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spotifm-player-sw.js": {
+      "get": {
+        "summary": "Serve web player Service Worker",
+        "description": "Serves the Service Worker used by the web player to tee the live audio response and parse Ogg granules in the browser. This path is relative to player_endpoint.",
+        "responses": {
+          "200": {
+            "description": "Service Worker JavaScript",
+            "content": {
+              "application/javascript": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spotifm-audio-worklet.js": {
+      "get": {
+        "summary": "Serve web player audio worklet",
+        "description": "Serves the audio worklet JavaScript from the configured local player path. This path is relative to player_endpoint.",
+        "responses": {
+          "200": {
+            "description": "Audio worklet JavaScript",
+            "content": {
+              "application/javascript": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/player-assets/{asset_path}": {
+      "get": {
+        "summary": "Serve web player asset",
+        "description": "Serves an arbitrary asset from the configured local player path. This path is relative to player_endpoint.",
+        "parameters": [
+          {
+            "name": "asset_path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Player asset",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Asset not found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/listen": {
+      "get": {
+        "summary": "Stream live audio",
+        "description": "Serves the live audio stream. This path is configurable with stream_endpoint.",
+        "responses": {
+          "200": {
+            "description": "Live audio stream",
+            "content": {
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "ApiKeyQuery": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "api_key"
+      }
+    },
+    "schemas": {
+      "AuthInfoResponse": {
+        "type": "object",
+        "required": [
+          "auth_enabled",
+          "authenticated",
+          "permissions"
+        ],
+        "properties": {
+          "auth_enabled": {
+            "type": "boolean"
+          },
+          "authenticated": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PlaylistTracksBody": {
+        "type": "object",
+        "properties": {
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "albums": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "playlists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TrackItem": {
+        "type": "object",
+        "required": [
+          "track_id",
+          "track_name",
+          "artists",
+          "queue_idx",
+          "artist_ids"
+        ],
+        "properties": {
+          "track_id": {
+            "type": "string"
+          },
+          "track_name": {
+            "type": "string"
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "queue_idx": {
+            "type": "integer",
+            "nullable": true
+          },
+          "artist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "album_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "album_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "playlist_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "playlist_name": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PlaylistInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "num_tracks",
+          "cover_urls",
+          "artists"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "num_tracks": {
+            "type": "integer"
+          },
+          "cover_urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "last_modified": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "NowPlaying": {
+        "type": "object",
+        "required": [
+          "status",
+          "track_id",
+          "track_name",
+          "artists",
+          "artist_ids",
+          "listeners"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "playing",
+              "paused",
+              "stopped",
+              "next",
+              "queued"
+            ]
+          },
+          "track_id": {
+            "type": "string"
+          },
+          "track_name": {
+            "type": "string"
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "album_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "album_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "track_duration_ms": {
+            "type": "integer",
+            "nullable": true
+          },
+          "position_ms": {
+            "type": "integer",
+            "nullable": true
+          },
+          "listeners": {
+            "type": "integer"
+          },
+          "active_playlist": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "ExtendedTrack": {
+        "type": "object",
+        "required": [
+          "track_id",
+          "uri",
+          "track_name",
+          "duration_ms",
+          "explicit",
+          "artists",
+          "artist_ids"
+        ],
+        "properties": {
+          "track_id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "track_name": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "integer"
+          },
+          "explicit": {
+            "type": "boolean"
+          },
+          "popularity": {
+            "type": "integer",
+            "nullable": true
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "album_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "album_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "album_artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "preview_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SimpleAlbum": {
+        "type": "object",
+        "required": [
+          "album_id",
+          "uri",
+          "album_name",
+          "artists",
+          "artist_ids"
+        ],
+        "properties": {
+          "album_id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "album_name": {
+            "type": "string"
+          },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "artist_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SimpleArtist": {
+        "type": "object",
+        "required": [
+          "artist_id",
+          "uri",
+          "artist_name",
+          "genres"
+        ],
+        "properties": {
+          "artist_id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "artist_name": {
+            "type": "string"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "popularity": {
+            "type": "integer",
+            "nullable": true
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SimplePlaylist": {
+        "type": "object",
+        "required": [
+          "playlist_id",
+          "uri",
+          "playlist_name",
+          "owner",
+          "total_tracks"
+        ],
+        "properties": {
+          "playlist_id": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          },
+          "playlist_name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "total_tracks": {
+            "type": "integer"
+          },
+          "cover_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "LyricsData": {
+        "type": "object",
+        "required": [
+          "type",
+          "track_id",
+          "lines"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Lyrics"
+            ]
+          },
+          "track_id": {
+            "type": "string"
+          },
+          "background": {
+            "type": "integer"
+          },
+          "text_color": {
+            "type": "integer"
+          },
+          "highlight_color": {
+            "type": "integer"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "time_ms",
+                "text"
+              ],
+              "properties": {
+                "time_ms": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NoLyricsData": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NoLyrics"
+            ]
+          }
+        }
+      },
+      "IdleData": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "Idle"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,80 +1,26 @@
-version: "3.3"
-
 services:
-
-  builder:
-    user: builder
-    build: ./docker/builder
-    volumes:
-      - ./:/tmp/spotifm
-
-  icecast2:
-    image: pltnk/icecast2
-    hostname: icecast2
-    volumes:
-      - type: bind
-        source: ./etc/icecast.xml
-        target: /etc/icecast2/icecast.xml
-    networks:
-      fm:
-        aliases:
-          - icecast2
+  spotifm:
+    image: waveplate/spotifm:latest
+    container_name: spotifm
+    restart: unless-stopped
     ports:
-      - "0.0.0.0:8000:8000"
-    restart: always
-
-  streamer:
-    user: user
-    build: ./docker/streamer
+      - "3333:3333"
+      - "3443:3443"
+      - "8898:8898"
     volumes:
-      - type: bind
-        source: ./target/release/spotifm
-        target: /usr/local/bin/spotifm
-      - type: bind
-        source: ./etc/pulse.liq
-        target: /etc/liquidsoap/pulse.liq
-      - type: bind
-        source: ./config.json
-        target: /etc/spotifm.json
-    networks:
-      fm:
-        aliases:
-          - streamer
+      # - ./config.toml:/config/config.toml:ro
+      # - ./playlists:/root/.local/share/spotifm/playlists:rw
+      # - ./player:/app/player:ro
+      - ${HOME}/.cache/spotifm:/root/.cache/spotifm:rw
+      - ${HOME}/.cache/ncspot:/root/.cache/ncspot:ro
+      - ${HOME}/.local/share/spotifm:/root/.local/share/spotifm
+
+  spotifm-ephemeral:
+    image: waveplate/spotifm:latest
+    container_name: spotifm-ephemeral
+    restart: unless-stopped
     ports:
-      - "0.0.0.0:9090:9090"
-    depends_on:
-      - icecast2
-    restart: always
+      - "3333:3333"
+      - "3443:3443"
+      - "8898:8898"
 
-  ircbot:
-    user: node
-    build: ./docker/ircbot
-    volumes:
-      - type: bind
-        source: ./ircbot.json
-        target: /etc/ircbot.json
-    networks:
-      fm:
-        aliases:
-          - ircbot
-    depends_on:
-      - streamer
-    restart: always
-
-  discordbot:
-    user: node
-    build: ./docker/discordbot
-    volumes:
-      - type: bind
-        source: ./discordbot.json
-        target: /etc/discordbot.json
-    networks:
-      fm:
-        aliases:
-          - discordbot
-    depends_on:
-      - streamer
-    restart: always
-
-networks:
-  fm:

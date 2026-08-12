@@ -1,232 +1,98 @@
-> [!WARNING]
-> *spotify no longer allows third-party logins via credentials, and is therefore non-functional until further notice*
+# spotifm (3.1.0-alpha)
 
+![spotifm](assets/spotifm.avif)
+
+***spotifm*** is a personal web radio streamer powered by your spotify library
 
 > [!NOTE]
-> *create an issue if you want to see this project's functionality restored via access token logins, as otherwise it will remain low on my priority list*
+> a spotify premium subscription is required to use ***spotifm***
 
+## changes/new features
 
-# spotifm (2.0.0)
-
-spotifm streams your spotify music over the internet using icecast2 and spawns a rest api
-
-> note: spotifm only works with spotify premium accounts
-
-there is an included:
-* irc bot which can be used to control the radio through irc commands
-* discord bot which streams the radio to a voice channel, and can be controlled through text channels
-
-the commands for both the irc and discord bot:
-* `!np` `!prev` `!next` - get the now playing, previous, and next track in the playlist
-* `!play <query>` - play this song on the stream immediately
-* `!queue <query>` - queue this song to be played next
-* `!search <query>` - get top 5 search results for your query
-* `!shuffle` - shuffle the playlist
+* **standalone web radio**
+   - no longer requiring co-deployment with icecast and ices
+* **flexible audio pipeline**
+   - user-definable gstreamer pipelines for encoding, muxing, audio processing, buffering, and output behaviour
+* **rest and websocket apis**
+   - playback control, search, playlist management, lyrics, telemetry, authorization & scopes
+* **cool web player**
+   - aesthetically pleasing web player with milkdrop visualizer + realistic ntsc/vhs webgl shaders, live telemetry, song search and playback control. highly configurable
+* **reference player**
+   - [`minimal reference implementation`](player/minimal.html) of simultaneous playback and WASM-based ogg granule extraction for synchronized lyrics
+* **bots**
+   - dj bots for [`irc`](bots/irc/) and [`discord`](bots/discord/)
 
 ## quick start
-### 1) configuration
-edit `config.json.example` and rename it to `config.json` 
+
+### 1) start ***spotifm***
+
+docker is the recommended way of getting up and running and only takes a few minutes
+
+<details>
+
+<summary><b>docker</b></summary>
+
+clone this repo
 
 ```
-    "user": "your@email.com",
-    "pass": "yourpass1",
-    "uris": [
-        "spotify:playlist:2WvtFSAkmcABdm3iAvYwXk"
-    ],
-    "elevenlabs": {
-        "key": "",
-        "voice": ""
-    }
+git clone https://github.com/waveplate/spotifm
+cd spotifm
+docker compose up -d spotifm
 ```
+;
+</details>
 
-`user` is your email
+<details>
 
-`pass` is your password
+<summary><b>run without docker</b></summary>
 
-`uris` is a list of spotify URIs (track, album or playlist) to play once started (`spotify:track:<ID>` or `spotify:album:<ID>` or `spotify:playlist:<ID>`)
+see the [build guide](docs/building.md), then start with
 
-optionally:
+`./target/release/spotifm`
 
-`elevenlabs` contains your elevenlabs API key, and the voice ID of the voice you want to use for TTS
+</details>
 
-### 2) track announcments and bumpers (optional)
+### 2) visit `/oauth` endpoint
 
-spotifm can announce the name of the song before it plays, as well as periodically play radio station bumpers of your choosing, configured as follows:
+visit the `/oauth` endpoint, e.g., http://127.0.0.1:3333/oauth
 
-```
-    "announce": {
-        "song": {
-            "enable": false,
-            "espeak": {
-                "gap": 10,
-                "speed": 150,
-                "pitch": 50,
-                "voice": "en-us",
-                "amplitude": 100
-            }
-        },
-        "bumper": {
-            "enable": false,
-            "freq": 20,
-            "tags": [
-                "you are listening to my radio"
-            ],
-            "espeak": {
-                "gap": 10,
-                "speed": 120,
-                "pitch": 50,
-                "voice": "en-us",
-                "amplitude": 100
-            }
-        }
-    }
-```
+this endpoint will automatically redirect you to spotify's oauth authorization portal and generally guide you through the authorization process
 
-they are disabled by default
+***why does it say ncspot?*** -- this is because we're borrowing the `client_id` used by the ncspot client for the sake of expediency. alternatively, see *[linking your own app](docs/configuration.md#linking-your-own-app)*
 
-`freq` is how often to play a bumper
+### 3) listen to some music
 
-see `espeak` manual for description of `gap`, `speed`, `pitch`, `voice` and `amplitude`
+> [!important]
+> the web player uses a service worker and an audio worklet to play and inspect the audio stream so that lyrics and visualizations remain synchronized
+>
+> browsers restrict these features to secure contexts: HTTPS, or HTTP on a loopback address such as `127.0.0.1`. this is why ***spotifm*** starts an HTTPS listener in addition to HTTP
+>
+> in addition to this, certain capabilities like autoplaying audio (without explicit interaction from the user) requires HTTPS regardless of whether it's running locally or not
+> 
+> **tl;dr:** *just use HTTPS*
 
-### 3) build spotifm
+#### using the web player
 
-`docker compose run builder`
+- if running locally, http://127.0.0.1:3333
+- if running on a remote server, https://server.ip.or.domain:3443
 
-> note: depending on your docker version, you may need to use `docker-compose` instead of `docker compose`
+#### using the /listen endpoint
 
-### 4) deploy spotifm
-`docker compose up -d --force-recreate streamer`
+- http://127.0.0.1:3333/listen
 
-> icecast2 will become available on port `8000`, listen to your radio at `http://<your-ip-address>:8000/listen`
+#### play a track
 
-> spotifm will spawn a rest api on port `9090`, issue api calls at `http://<your-ip-address>:9090/...`
+- click the search icon in the top right corner and play some music !
+- or, use the API: http://127.0.0.1:3333/play/track?q=dr+worm+they+might+be+giants
 
-### 5) irc bot (optional)
-make sure to edit `ircbot.json.example` and rename it to `ircbot.json`, then
+---
 
-`docker compose up -d ircbot`
+## documentation
 
-### 6) discord bot (optional)
-make sure to edit `discordbot.json.example` and rename it to `discordbot.json`, then
+- [building ***spotifm***](docs/building.md)
+- [configuration and usage](docs/configuration.md)
+- [HTTPS and nginx](docs/https.md)
+- [API reference](docs/API.md)
+- [documentation index](docs/README.md)
 
-`docker compose up -d discordbot`
-
-## rest api endpoints
-### `GET /np`
-### `GET /prev`
-### `GET /next`
-### `GET /skip`
-### `GET /queue/<TRACK-ID>`
-### `GET /play/<TRACK-ID>`
-all return (example):
-```
-{
-    "id": "6bu8npt0GdVeESCM7K4The",
-    "rid": 1676115018281,
-    "track": "Speak Up",
-    "artists": [
-        "Freddie Dredd"
-    ]
-}
-``` 
-or `{ "error": "<error msg>"}`
-### `GET /playlist`
-### `GET /shuffle`
-returns (example):
-```
-[
-    {
-        "id": "6bu8npt0GdVeESCM7K4The",
-        "rid": 1676118353658,
-        "track": "Speak Up",
-        "artists": [
-            "Freddie Dredd"
-        ]
-    },
-
-    ...
-]
-```
-### `GET /search/<TRACK|ARTIST|ALBUM|PLAYLIST>/<LIMIT>?q=<QUERY>`
-returns (example):
-```
-[
-    {
-        "album": { ... },
-        "artists": [ ... ],
-        "available_markets": [ ... ],
-        "disc_number": 1,
-        "duration_ms": 122331,
-        "explicit": true,
-        "external_ids": { ... },
-        "external_urls": { ... },
-        "href": "https://api.spotify.com/v1/tracks/2nzjXDv6OuRHrHKhfhfB98",
-        "id": "2nzjXDv6OuRHrHKhfhfB98",
-        "is_local": false,
-        "name": "Low Key",
-        "popularity": 62,
-        "preview_url": "https://p.scdn.co/mp3-preview/c4008f1cb619949d448818891c5839404a0d53ad?cid=65b708073fc0480ea92a077233ca87bd",
-        "track_number": 3
-    },
-
-    ...
-]
-```
-or `{ "error": "<error msg>"}`
-
-### `POST /announce/bumper`
-takes post fields `enable`, `tag`, `freq`, `speed`, `amplitude`, `pitch`, `gap`, `voice` and updates the running instance of your config
-
-if `tag` is supplied, it is appended to your current tags
-
-### `DELETE /announce/bumper/tags`
-clears out your tags
-
-### `GET /announce/bumper`
-all above return (example):
-```
-{
-    "idx": 1,
-    "enable": true,
-    "tags": [
-        ...
-    ],
-    "freq": 5,
-    "espeak": {
-        "speed": 160,
-        "amplitude": 60,
-        "pitch": 1,
-        "gap": 5,
-        "voice": "en-us"
-    }
-}
-```
-
-### `POST /announce/song`
-takes post fields `enable`, `speed`, `amplitude`, `pitch`, `gap`, `voice` and updates running instance of your config
-
-### `GET /announce/song`
-all above return (example):
-```
-{
-    "enable": false,
-    "espeak": {
-        "speed": 170,
-        "amplitude": 100,
-        "pitch": 50,
-        "gap": 10,
-        "voice": "en-us"
-    }
-}
-```
-
-### `GET /espeak?text=<TEXT>`
-### `GET /elevenlabs?text=<TEXT>`
-this will use espeak, or the elevenlabs API to speak your `TEXT`
-
-it will return:
-```
-{
-    "text": <TEXT>
-}
-```
+---
