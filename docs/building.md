@@ -61,3 +61,14 @@
    ```sh
    cargo build --release --locked
    ```
+
+---
+
+## static musl build
+
+To build a 100% standalone, statically-linked binary without dynamic GStreamer runtime dependencies, see [static musl build guide](static-musl-build.md) or run:
+
+```sh
+./scripts/build-static-musl.sh
+```
+
