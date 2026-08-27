@@ -42,6 +42,7 @@ no_browser = false
 # Local player path.
 # Set this to a directory containing index.html or a direct path to index.html.
 # The --player flag requires a local directory or index.html path.
+# Defaults to ./player, with fallback to XDG data directory ($XDG_DATA_HOME/spotifm/player).
 player = "player"
 
 # URL path at which the web player is served

@@ -22,6 +22,7 @@ you can create an application in the spotify developer dashboard to use a public
 | ---- | ---- | --- | --- |
 | `config.toml` | `--conf FILE` | `./config.toml` | `$XDG_CONFIG_HOME/spotifm/config.toml` |
 | `playlists/` | `$XDG_DATA_HOME/spotifm/playlists/` | `~/.local/share/spotifm/playlists/` when `XDG_DATA_HOME` is unset | -- |
+| `player/` | `--player PATH` or `player = "..."` | `./player` | `$XDG_DATA_HOME/spotifm/player` (`~/.local/share/spotifm/player` when unset), `$XDG_DATA_DIRS/spotifm/player` |
 | `credentials.json` | `$XDG_CACHE_HOME/spotifm/` | `$XDG_CACHE_HOME/librespot/` | `$XDG_CACHE_HOME/*/librespot/` |
 | `rspotify_token.json` | `$XDG_CACHE_HOME/spotifm/` | -- | -- |
 | `cert.pem` and `key.pem` | `tls_cert` and `tls_key`, or `--tls-cert` and `--tls-key` | `$XDG_CACHE_HOME/spotifm/tls/` | -- |
@@ -53,7 +54,7 @@ you can create an application in the spotify developer dashboard to use a public
 | `pipeline` | `--pipeline` | `-g` | `passthrough` | `passthrough`, `opus`, `vorbis`, `mp3`, or a custom pipeline name |
 | `stream_endpoint` | `--stream-endpoint` | `-E` | `/listen` | audio-stream path |
 | `player_endpoint` | `--player-endpoint` | `-e` | `/` | web-player path |
-| `player` | `--player PATH` | `-w` | `./player` | local player directory or `index.html` path |
+| `player` | `--player PATH` | `-w` | `./player` if present, otherwise `$XDG_DATA_HOME/spotifm/player` | local player directory or `index.html` path |
 | `gst_pipelines.<name>` | *(config only)* | *(none)* | built-in `mp3`, `opus`, and `vorbis` pipelines | custom or overridden gstreamer pipeline template |
 | `[[api_key]]` | *(config only)* | *(none)* | none | API key with `key` and a `scope` array |
 

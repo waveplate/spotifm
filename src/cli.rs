@@ -92,7 +92,7 @@ pub struct CliArgs {
     #[arg(long = "tls-key", value_name = "FILE", help_heading = "TLS options")]
     pub tls_key: Option<PathBuf>,
 
-    /// Path to web player directory or index.html [default: ./player]
+    /// Path to web player directory or index.html [default: ./player, fallback to XDG data directory]
     #[arg(
         short = 'w',
         long = "player",
@@ -279,6 +279,87 @@ fn expand_pipeline_template(template: &str, bitrate: u32, max_buffers: u32) -> S
         .replace("{max_buffers}", &max_buffers.to_string())
 }
 
+pub fn xdg_data_home() -> Option<PathBuf> {
+    if let Ok(xdg_data_home) = std::env::var("XDG_DATA_HOME") {
+        if !xdg_data_home.is_empty() {
+            return Some(PathBuf::from(xdg_data_home));
+        }
+    }
+
+    std::env::var("HOME")
+        .ok()
+        .filter(|home| !home.is_empty())
+        .map(|home| PathBuf::from(home).join(".local").join("share"))
+}
+
+pub fn xdg_data_dirs() -> Vec<PathBuf> {
+    if let Ok(xdg_data_dirs) = std::env::var("XDG_DATA_DIRS") {
+        if !xdg_data_dirs.is_empty() {
+            return xdg_data_dirs
+                .split(':')
+                .filter(|s| !s.is_empty())
+                .map(PathBuf::from)
+                .collect();
+        }
+    }
+
+    vec![
+        PathBuf::from("/usr/local/share"),
+        PathBuf::from("/usr/share"),
+    ]
+}
+
+pub fn player_path_for_data_home(data_home: &Path) -> PathBuf {
+    data_home.join("spotifm").join("player")
+}
+
+pub fn player_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    candidates.push(PathBuf::from("player"));
+
+    if let Some(data_home) = xdg_data_home() {
+        candidates.push(player_path_for_data_home(&data_home));
+    }
+
+    for data_dir in xdg_data_dirs() {
+        candidates.push(player_path_for_data_home(&data_dir));
+    }
+
+    candidates
+}
+
+pub fn resolve_player_path_from(
+    cli_player: Option<PathBuf>,
+    toml_player: Option<PathBuf>,
+    candidates: &[PathBuf],
+) -> PathBuf {
+    if let Some(path) = cli_player {
+        return path;
+    }
+
+    if let Some(path) = toml_player {
+        let is_default_relative = path == Path::new("player") || path == Path::new("./player");
+        if !is_default_relative || path.exists() {
+            return path;
+        }
+    }
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return candidate.clone();
+        }
+    }
+
+    default_player_path()
+}
+
+pub fn resolve_player_path(
+    cli_player: Option<PathBuf>,
+    toml_player: Option<PathBuf>,
+) -> PathBuf {
+    resolve_player_path_from(cli_player, toml_player, &player_candidates())
+}
+
 fn playlist_path_for_data_home(data_home: &Path) -> PathBuf {
     data_home
         .join("spotifm")
@@ -287,20 +368,7 @@ fn playlist_path_for_data_home(data_home: &Path) -> PathBuf {
 }
 
 fn xdg_playlist_path() -> PathBuf {
-    let data_home = if let Ok(xdg_data_home) = std::env::var("XDG_DATA_HOME") {
-        if !xdg_data_home.is_empty() {
-            PathBuf::from(xdg_data_home)
-        } else if let Ok(home) = std::env::var("HOME") {
-            PathBuf::from(home).join(".local").join("share")
-        } else {
-            PathBuf::from(".")
-        }
-    } else if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".local").join("share")
-    } else {
-        PathBuf::from(".")
-    };
-
+    let data_home = xdg_data_home().unwrap_or_else(|| PathBuf::from("."));
     playlist_path_for_data_home(&data_home)
 }
 
@@ -497,11 +565,10 @@ player = "player"
                     .unwrap_or_else(|| "/".to_string()),
                 "/",
             ),
-            player: validate_player_path(
-                args.player
-                    .or(toml_config.player)
-                    .unwrap_or_else(default_player_path),
-            )
+            player: validate_player_path(resolve_player_path(
+                args.player,
+                toml_config.player,
+            ))
             .unwrap_or_else(|error| {
                 eprintln!("[Config] {error}");
                 std::process::exit(2);
@@ -645,5 +712,67 @@ mod tests {
             CliArgs::try_parse_from(["spotifm", "--player", "https://example.com/index.html"])
                 .is_err()
         );
+    }
+
+    #[test]
+    fn player_path_under_data_home() {
+        assert_eq!(
+            super::player_path_for_data_home(Path::new("/srv/data")),
+            PathBuf::from("/srv/data/spotifm/player")
+        );
+    }
+
+    #[test]
+    fn resolve_player_path_prefers_cli_arg() {
+        let candidates = vec![PathBuf::from("/tmp/nonexistent-player")];
+        let resolved = super::resolve_player_path_from(
+            Some(PathBuf::from("/opt/custom-player")),
+            Some(PathBuf::from("/etc/spotifm/player")),
+            &candidates,
+        );
+        assert_eq!(resolved, PathBuf::from("/opt/custom-player"));
+    }
+
+    #[test]
+    fn resolve_player_path_uses_custom_toml_path() {
+        let candidates = vec![PathBuf::from("/tmp/nonexistent-player")];
+        let resolved = super::resolve_player_path_from(
+            None,
+            Some(PathBuf::from("/etc/spotifm/player")),
+            &candidates,
+        );
+        assert_eq!(resolved, PathBuf::from("/etc/spotifm/player"));
+    }
+
+    #[test]
+    fn resolve_player_path_falls_back_to_xdg_when_local_does_not_exist() {
+        let xdg_candidate = std::env::temp_dir().join(format!("spotifm-test-xdg-player-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&xdg_candidate);
+
+        let non_existent_local = PathBuf::from("/tmp/definitely-nonexistent-local-player-dir-12345");
+        let candidates = vec![non_existent_local, xdg_candidate.clone()];
+
+        let resolved = super::resolve_player_path_from(
+            None,
+            None,
+            &candidates,
+        );
+        assert_eq!(resolved, xdg_candidate);
+
+        let _ = std::fs::remove_dir_all(&xdg_candidate);
+    }
+
+    #[test]
+    fn resolve_player_path_returns_default_when_no_candidates_exist() {
+        let non_existent_1 = PathBuf::from("/tmp/definitely-nonexistent-1");
+        let non_existent_2 = PathBuf::from("/tmp/definitely-nonexistent-2");
+        let candidates = vec![non_existent_1, non_existent_2];
+
+        let resolved = super::resolve_player_path_from(
+            None,
+            None,
+            &candidates,
+        );
+        assert_eq!(resolved, PathBuf::from("player"));
     }
 }
