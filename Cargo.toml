@@ -41,3 +41,6 @@ percent-encoding = "2.3"
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots"] }
+
+[build-dependencies]
+cc = "1.0"

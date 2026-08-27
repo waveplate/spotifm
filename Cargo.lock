@@ -3088,6 +3088,7 @@ name = "spotifm"
 version = "3.1.0-alpha"
 dependencies = [
  "bytes",
+ "cc",
  "chrono",
  "clap",
  "futures-util",
