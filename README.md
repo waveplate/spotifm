@@ -26,7 +26,14 @@
 
 ### 1) start ***spotifm***
 
-docker is the recommended way of getting up and running and only takes a few minutes
+<details open>
+<summary><b>one-line install (standalone static binary)</b></summary>
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/main/install.sh | bash
+```
+
+</details>
 
 <details>
 

@@ -4,20 +4,40 @@ This document details how **spotifm** achieves a 100% standalone, statically-lin
 
 ---
 
-## 🚀 One-Command Build
-
+## 🚀 Quick Install & Distribution
+ 
+### 1. One-Line Installer
+ 
+Install the static Musl binary and player assets directly with:
+ 
+```sh
+curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/main/install.sh | bash
+```
+ 
+This automatically places `spotifm` into `/usr/local/bin` and copies the web player into `/usr/local/share/spotifm/player` (or user paths if rootless).
+ 
+### 2. One-Command Build
+ 
 To build the static Musl binary and extract it to `./target/x86_64-unknown-linux-musl/release/spotifm`:
-
+ 
 ```sh
 ./scripts/build-static-musl.sh
 ```
-
-Or build the Docker container directly:
-
+ 
+### 3. Generate Release Archive (.tar.gz)
+ 
+To package the compiled static binary, web player directory, default configuration, and SHA256 checksums into `./dist/`:
+ 
 ```sh
-docker build -f docker/static-musl/Dockerfile -t spotifm:static-musl .
+./scripts/package-release.sh
 ```
-
+ 
+Or build and package in a single step:
+ 
+```sh
+./scripts/package-release.sh --build
+```
+ 
 ---
 
 ## 🔍 Technical Architecture & Pitfalls Solved
