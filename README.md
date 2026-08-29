@@ -28,9 +28,9 @@
 
 <details>
 
-<summary><b>standalone binary</b></summary>
+<summary><b>curl install</b></summary>
 
-curl installer (static musl build)
+installs spotifm and web player to system / XDG paths
 
 ```
 curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0-alpha/install.sh | bash
