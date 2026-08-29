@@ -26,11 +26,14 @@
 
 ### 1) start ***spotifm***
 
-<details open>
-<summary><b>one-line install (standalone static binary)</b></summary>
+<details>
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/main/install.sh | bash
+<summary><b>standalone binary</b></summary>
+
+curl installer (static musl build)
+
+```
+curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0-alpha/install.sh | bash
 ```
 
 </details>
