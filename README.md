@@ -1,4 +1,4 @@
-# spotifm (3.1.0-alpha)
+# spotifm (3.1.0)
 
 ![spotifm](assets/spotifm.avif)
 
@@ -24,23 +24,31 @@
 
 ## quick start
 
-### 1) start ***spotifm***
+### 1) install ***spotifm***
+
+#### one-liner
+
+by far the quickest of the starts, one command install
+ 
+>**`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0/install.sh | bash`**
+
+
+will work on all x64 linux systems, probably the way to go if you're not using docker
+
+this will install:
+
+- `/usr/local/bin/spotifm` (static musl binary)
+- `$XDG_DATA_HOME/spotifm/player` or `/usr/local/share/spotifm/player` (web player files)
+
+once installed, start with
+
+>`spotifm`
+
+#### other options
 
 <details>
 
-<summary><b>curl install</b></summary>
-
-installs spotifm and web player to system / XDG paths
-
-```
-curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0-alpha/install.sh | bash
-```
-
-</details>
-
-<details>
-
-<summary><b>docker</b></summary>
+<summary><b><u>docker</u></b></summary>
 
 clone this repo
 
@@ -49,12 +57,12 @@ git clone https://github.com/waveplate/spotifm
 cd spotifm
 docker compose up -d spotifm
 ```
-;
+
 </details>
 
 <details>
 
-<summary><b>run without docker</b></summary>
+<summary><b><u>run without docker</u></b></summary>
 
 see the [build guide](docs/building.md), then start with
 

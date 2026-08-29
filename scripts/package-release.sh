@@ -42,7 +42,7 @@ Packages the static Musl spotifm binary, web player directory, and release
 assets into a distributable .tar.gz archive with SHA256 checksums.
 
 Options:
-  -v, --version <VERSION>   Specify the release version (e.g. 3.1.0-alpha).
+  -v, --version <VERSION>   Specify the release version (e.g. 3.1.0).
                             Default: extracted from Cargo.toml.
   -o, --output-dir <DIR>    Directory where the release .tar.gz will be saved.
                             Default: ./dist
@@ -57,7 +57,7 @@ Options:
 Examples:
   $(basename "$0")
   $(basename "$0") --build
-  $(basename "$0") --version 3.1.0-alpha --output-dir ./dist
+  $(basename "$0") --version 3.1.0 --output-dir ./dist
 EOF
 }
 

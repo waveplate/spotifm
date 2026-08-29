@@ -8,7 +8,7 @@ set -euo pipefail
 #   curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/main/install.sh | bash
 #
 # Environment variables / Options:
-#   SPOTIFM_VERSION   Specific version to install (e.g. "3.1.0-alpha" or "latest")
+#   SPOTIFM_VERSION   Specific version to install (e.g. "3.1.0" or "latest")
 #   SPOTIFM_REPO      GitHub repository (default: "waveplate/spotifm")
 #   SPOTIFM_URL       Direct archive download URL (bypasses GitHub releases)
 #   SPOTIFM_BIN_DIR   Destination for binary (default: /usr/local/bin or ~/.local/bin)

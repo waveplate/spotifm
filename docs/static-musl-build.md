@@ -11,7 +11,7 @@ This document details how **spotifm** achieves a 100% standalone, statically-lin
 Install the static Musl binary and player assets directly with:
  
 ```sh
-curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0-alpha/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0/install.sh | bash
 ```
  
 This automatically places `spotifm` into `/usr/local/bin` and copies the web player into `/usr/local/share/spotifm/player` (or user paths if rootless).

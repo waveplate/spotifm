@@ -3085,7 +3085,7 @@ dependencies = [
 
 [[package]]
 name = "spotifm"
-version = "3.1.0-alpha"
+version = "3.1.0"
 dependencies = [
  "bytes",
  "cc",
