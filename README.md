@@ -120,6 +120,7 @@ this endpoint will automatically redirect you to spotify's oauth authorization p
 - [configuration and usage](docs/configuration.md)
 - [HTTPS and nginx](docs/https.md)
 - [API reference](docs/API.md)
+- [interactive OpenAPI documentation](https://waveplate.github.io/spotifm)
 - [documentation index](docs/README.md)
 
 ---
