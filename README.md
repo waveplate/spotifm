@@ -28,10 +28,9 @@
 
 #### one-liner
 
-by far the quickest of the starts, one command install
- 
->**`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0/install.sh | bash`**
-
+> [!NOTE]
+> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0/install.sh | bash`***
+> 
 
 will work on all x64 linux systems, probably the way to go if you're not using docker
 
@@ -120,6 +119,7 @@ this endpoint will automatically redirect you to spotify's oauth authorization p
 - [configuration and usage](docs/configuration.md)
 - [HTTPS and nginx](docs/https.md)
 - [API reference](docs/API.md)
+- [interactive OpenAPI documentation](https://waveplate.github.io/spotifm)
 - [documentation index](docs/README.md)
 
 ---
