@@ -17,21 +17,37 @@ CUSTOM_BINARY=""
 RUN_BUILD=false
 RUN_BUILD_PLAYER=false
 
+if [[ -t 1 ]]; then
+    COLOR_RESET=$'\e[0m'
+    COLOR_BOLD=$'\e[1m'
+    COLOR_GREEN=$'\e[1;32m'
+    COLOR_BLUE=$'\e[1;34m'
+    COLOR_YELLOW=$'\e[1;33m'
+    COLOR_RED=$'\e[1;31m'
+else
+    COLOR_RESET=""
+    COLOR_BOLD=""
+    COLOR_GREEN=""
+    COLOR_BLUE=""
+    COLOR_YELLOW=""
+    COLOR_RED=""
+fi
+
 # Helper functions
 log_info() {
-    echo -e "\033[1;34m==>\033[0m \033[1m$1\033[0m"
+    printf "%s==>%s %s%s%s\n" "${COLOR_BLUE}" "${COLOR_RESET}" "${COLOR_BOLD}" "$1" "${COLOR_RESET}"
 }
 
 log_success() {
-    echo -e "\033[1;32m==>\033[0m \033[1;32m$1\033[0m"
+    printf "%s==>%s %s%s%s\n" "${COLOR_GREEN}" "${COLOR_RESET}" "${COLOR_GREEN}" "$1" "${COLOR_RESET}"
 }
 
 log_warn() {
-    echo -e "\033[1;33m[Warning]\033[0m $1" >&2
+    printf "%s[Warning]%s %s\n" "${COLOR_YELLOW}" "${COLOR_RESET}" "$1" >&2
 }
 
 log_error() {
-    echo -e "\033[1;31m[Error]\033[0m $1" >&2
+    printf "%s[Error]%s %s\n" "${COLOR_RED}" "${COLOR_RESET}" "$1" >&2
 }
 
 show_help() {

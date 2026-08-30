@@ -18,13 +18,13 @@ set -euo pipefail
 
 # ANSI Color formatting
 if [[ -t 1 ]]; then
-    COLOR_RESET="\033[0m"
-    COLOR_BOLD="\033[1m"
-    COLOR_GREEN="\033[1;32m"
-    COLOR_BLUE="\033[1;34m"
-    COLOR_YELLOW="\033[1;33m"
-    COLOR_RED="\033[1;31m"
-    COLOR_CYAN="\033[1;36m"
+    COLOR_RESET=$'\e[0m'
+    COLOR_BOLD=$'\e[1m'
+    COLOR_GREEN=$'\e[1;32m'
+    COLOR_BLUE=$'\e[1;34m'
+    COLOR_YELLOW=$'\e[1;33m'
+    COLOR_RED=$'\e[1;31m'
+    COLOR_CYAN=$'\e[1;36m'
 else
     COLOR_RESET=""
     COLOR_BOLD=""
@@ -36,19 +36,19 @@ else
 fi
 
 log_info() {
-    echo -e "${COLOR_BLUE}==>${COLOR_RESET} ${COLOR_BOLD}$1${COLOR_RESET}"
+    printf "%s==>%s %s%s%s\n" "${COLOR_BLUE}" "${COLOR_RESET}" "${COLOR_BOLD}" "$1" "${COLOR_RESET}"
 }
 
 log_success() {
-    echo -e "${COLOR_GREEN}==>${COLOR_RESET} ${COLOR_GREEN}$1${COLOR_RESET}"
+    printf "%s==>%s %s%s%s\n" "${COLOR_GREEN}" "${COLOR_RESET}" "${COLOR_GREEN}" "$1" "${COLOR_RESET}"
 }
 
 log_warn() {
-    echo -e "${COLOR_YELLOW}[Warning]${COLOR_RESET} $1" >&2
+    printf "%s[Warning]%s %s\n" "${COLOR_YELLOW}" "${COLOR_RESET}" "$1" >&2
 }
 
 log_error() {
-    echo -e "${COLOR_RED}[Error]${COLOR_RESET} $1" >&2
+    printf "%s[Error]%s %s\n" "${COLOR_RED}" "${COLOR_RESET}" "$1" >&2
 }
 
 show_help() {
@@ -398,7 +398,7 @@ if ! echo ":${PATH}:" | grep -q ":${BIN_DIR}:"; then
 fi
 
 # Quick start tips
-echo -e "${COLOR_CYAN}${COLOR_BOLD}Next Steps:${COLOR_RESET}"
+echo "${COLOR_CYAN}${COLOR_BOLD}Next Steps:${COLOR_RESET}"
 echo "  1. Start Spotifm by running:"
 echo "     ${COLOR_BOLD}spotifm${COLOR_RESET}"
 echo ""
