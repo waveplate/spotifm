@@ -30,13 +30,16 @@ WORKDIR /build
 # 1. Build libopus static archive
 RUN curl -sSL https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz | tar -xz && \
     cd opus-1.5.2 && \
-    ./configure --enable-static --disable-shared --disable-extra-programs --prefix=/opt/local-static && \
+    CFLAGS="-O3 -fomit-frame-pointer" ./configure --enable-static --disable-shared --disable-extra-programs --prefix=/opt/local-static && \
     make -j$(nproc) install
 
 # 2. Build GLib static archive with NLS disabled (prevents GNU gettext weak symbol crash on Musl)
 RUN git clone --depth 1 --branch 2.82.5 https://gitlab.gnome.org/GNOME/glib.git glib-src && \
     cd glib-src && \
     meson setup build-static \
+      --buildtype=release \
+      -Doptimization=3 \
+      -Db_ndebug=true \
       --default-library=static \
       -Dintrospection=disabled \
       -Dnls=disabled \
@@ -52,6 +55,9 @@ ENV PKG_CONFIG_PATH="/opt/glib-static/lib/pkgconfig:/opt/local-static/lib/pkgcon
 RUN git clone --depth 1 --branch 1.24.12 https://gitlab.freedesktop.org/gstreamer/gstreamer.git gst-src && \
     cd gst-src && \
     meson setup build-static \
+      --buildtype=release \
+      -Doptimization=3 \
+      -Db_ndebug=true \
       --default-library=static \
       -Dgst-full=enabled \
       -Dgst-full-target-type=static_library \
@@ -127,6 +133,7 @@ ENV PKG_CONFIG_PATH="/opt/glib-static/lib/pkgconfig:/opt/local-static/lib/pkgcon
 ENV PKG_CONFIG_ALL_STATIC=1
 
 ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="\
+-C target-cpu=x86-64-v2 \
 -C target-feature=+crt-static \
 -L /opt/glib-static/lib \
 -L /opt/gstreamer-static/lib \

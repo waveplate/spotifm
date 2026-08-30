@@ -8,16 +8,17 @@ name = "spotifm"
 path = "src/main.rs"
 
 [profile.release]
-lto = true
+opt-level = 3
+lto = "fat"
 codegen-units = 1
-opt-level = "z"
-strip = true
 panic = "abort"
+strip = true
 
 [profile.release.package."*"]
 opt-level = 3
 
 [dependencies]
+mimalloc = { version = "0.1", default-features = false }
 librespot = { version = "0.8.0", default-features = false, features = ["rustls-tls-webpki-roots", "with-libmdns", "passthrough-decoder"] }
 librespot-metadata = { version = "0.8.0", default-features = false, features = ["rustls-tls-webpki-roots"] }
 warp = { version = "0.3", features = ["tls"] }

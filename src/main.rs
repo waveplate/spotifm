@@ -1,5 +1,8 @@
 #![recursion_limit = "1024"]
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 macro_rules! println {
     ($($arg:tt)*) => {{
         let message = std::format!($($arg)*);
