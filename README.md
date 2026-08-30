@@ -59,6 +59,14 @@ docker run -d \
   waveplate/spotifm:latest
 ```
 
+or with docker-compose:
+
+```
+git clone https://github.com/waveplate/spotifm
+cd spotifm
+docker compose up -d spotifm
+```
+
 </details>
 
 <details>
