@@ -1,4 +1,5 @@
 target
+dist/
 player/vendor/butterchurn.js
 player/vendor/butterchurn-presets.js
 
