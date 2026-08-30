@@ -50,12 +50,13 @@ once installed, start with
 
 <summary><b><u>docker</u></b></summary>
 
-clone this repo
-
 ```
-git clone https://github.com/waveplate/spotifm
-cd spotifm
-docker compose up -d spotifm
+docker run -d \
+  -p 3333:3333 \
+  -p 3443:3443 \
+  -v ${HOME}/.local/share/spotifm:/root/.local/share/spotifm \
+  --name spotifm \
+  waveplate/spotifm:latest
 ```
 
 </details>
