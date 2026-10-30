@@ -67,14 +67,25 @@ Neither page needs a Spotifm process, Spotify login, API key, or uploaded audio.
    a bundle is being downloaded separately; it never enables live lyrics in
    the public demo. Supply the matching bundle before publishing that build.
 
-Host **both `player/demo.html` and `player/demo-lyrics.jsonl` together**. For
-local use, serve the player directory instead of double-clicking the HTML:
+The build also writes the public demo to **`docs/demo/index.html`** and
+**`docs/demo/demo-lyrics.jsonl`**. The existing GitHub Pages site publishes
+`/docs` from `develop`, so the API docs stay at
+<https://waveplate.github.io/spotifm/> and the demo is served at
+<https://waveplate.github.io/spotifm/demo/>. No Pages settings change is needed.
+The demo's scripts and styles are embedded in its HTML; the lyric bundle is
+its only additional local asset. `--builder-only` and builds with a deferred,
+incomplete lyric bundle leave this publishing directory unchanged.
+
+For local use, serve the docs directory instead of double-clicking the HTML:
 
 ```sh
-python3 -m http.server 8080 --directory player
+python3 -m http.server 8080 --directory docs
 ```
 
-Open `http://localhost:8080/demo.html`, or upload both files to an HTTPS host.
+Open `http://localhost:8080/demo/`. For other static hosts, publish the contents
+of `docs/demo/` as the site root, keeping `index.html` and `demo-lyrics.jsonl`
+together. The original `player/demo.html` and `player/demo-lyrics.jsonl` outputs
+remain available for the player distribution.
 Click to play. Each clip advances to the next sample when it ends, returning
 to the first sample after the last one. Lyrics follow the audio clock across
 pauses, seeks, and song changes. Demo appearance settings are separate from live settings.

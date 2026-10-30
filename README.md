@@ -105,7 +105,7 @@ this endpoint will automatically redirect you to spotify's oauth authorization p
 
 - if running locally, http://127.0.0.1:3333
 - if running on a remote server, https://server.ip.or.domain:3443
-- standalone preview demo: [player/demo.html](player/demo.html) ([setup and sample timing](player/DEMO.md))
+- standalone preview demo: [try it online](https://waveplate.github.io/spotifm/demo/) ([setup and sample timing](player/DEMO.md))
 - curate and export demo songs: [player/demo-builder.html](player/demo-builder.html)
 
 #### using the /listen endpoint

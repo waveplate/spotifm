@@ -9,9 +9,15 @@
     html { box-sizing: border-box; overflow: -y-scroll; }
     *, *:before, *:after { box-sizing: inherit; }
     body { margin: 0; background: #fafafa; }
+    .site-links { display: flex; gap: 20px; padding: 12px 20px; background: #fff; border-bottom: 1px solid #ddd; font: 14px system-ui, sans-serif; }
+    .site-links a { color: #3b4151; font-weight: 600; }
   </style>
 </head>
 <body>
+  <nav class="site-links" aria-label="Spotifm pages">
+    <a href="./" aria-current="page">API docs</a>
+    <a href="demo/">Player demo</a>
+  </nav>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>

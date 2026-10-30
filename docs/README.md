@@ -1,5 +1,6 @@
 # documentation
 
+- [standalone player demo](demo/)
 - [building spotifm](building.md)
 - [static musl build](static-musl-build.md)
 - [3.2.0-beta release notes](releases/3.2.0-beta.md)

@@ -289,8 +289,19 @@ demo, config_count = re.subn(config_pattern, lambda _: '<script id="player-runti
               demo_js.replace("</script>", "<\\/script>") + '\n</script>', demo, count=1, flags=re.S)
 if config_count != 1:
     raise SystemExit("Missing player-runtime-config script in player/src/index.html")
-(repo_root / "player/demo.html").write_text(re.sub(r"[ \t]+$", "", demo, flags=re.M), encoding="utf-8")
+demo = re.sub(r"[ \t]+$", "", demo, flags=re.M)
+(repo_root / "player/demo.html").write_text(demo, encoding="utf-8")
 print("[Build] Built player/demo.html successfully!")
+
+# Publish alongside the existing API docs served from /docs by GitHub Pages.
+if bundle_data is not None:
+    pages_demo_dir = repo_root / "docs/demo"
+    pages_demo_dir.mkdir(parents=True, exist_ok=True)
+    demo_lyrics.atomic_write(pages_demo_dir / "demo-lyrics.jsonl", bundle_data)
+    (pages_demo_dir / "index.html").write_text(demo, encoding="utf-8")
+    print("[Build] Built docs/demo/index.html and its lyric bundle successfully!")
+else:
+    print("[Build] Skipped docs/demo: supply the complete lyric bundle before publishing.", file=sys.stderr)
 
 if demo_only:
     sys.exit(0)
