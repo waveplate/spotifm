@@ -353,10 +353,7 @@ pub fn resolve_player_path_from(
     default_player_path()
 }
 
-pub fn resolve_player_path(
-    cli_player: Option<PathBuf>,
-    toml_player: Option<PathBuf>,
-) -> PathBuf {
+pub fn resolve_player_path(cli_player: Option<PathBuf>, toml_player: Option<PathBuf>) -> PathBuf {
     resolve_player_path_from(cli_player, toml_player, &player_candidates())
 }
 
@@ -565,14 +562,11 @@ player = "player"
                     .unwrap_or_else(|| "/".to_string()),
                 "/",
             ),
-            player: validate_player_path(resolve_player_path(
-                args.player,
-                toml_config.player,
-            ))
-            .unwrap_or_else(|error| {
-                eprintln!("[Config] {error}");
-                std::process::exit(2);
-            }),
+            player: validate_player_path(resolve_player_path(args.player, toml_config.player))
+                .unwrap_or_else(|error| {
+                    eprintln!("[Config] {error}");
+                    std::process::exit(2);
+                }),
             api_keys: {
                 let mut resolved = std::collections::HashMap::new();
                 if let Some(ref keys) = toml_config.api_key {
@@ -746,17 +740,15 @@ mod tests {
 
     #[test]
     fn resolve_player_path_falls_back_to_xdg_when_local_does_not_exist() {
-        let xdg_candidate = std::env::temp_dir().join(format!("spotifm-test-xdg-player-{}", std::process::id()));
+        let xdg_candidate =
+            std::env::temp_dir().join(format!("spotifm-test-xdg-player-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&xdg_candidate);
 
-        let non_existent_local = PathBuf::from("/tmp/definitely-nonexistent-local-player-dir-12345");
+        let non_existent_local =
+            PathBuf::from("/tmp/definitely-nonexistent-local-player-dir-12345");
         let candidates = vec![non_existent_local, xdg_candidate.clone()];
 
-        let resolved = super::resolve_player_path_from(
-            None,
-            None,
-            &candidates,
-        );
+        let resolved = super::resolve_player_path_from(None, None, &candidates);
         assert_eq!(resolved, xdg_candidate);
 
         let _ = std::fs::remove_dir_all(&xdg_candidate);
@@ -768,11 +760,7 @@ mod tests {
         let non_existent_2 = PathBuf::from("/tmp/definitely-nonexistent-2");
         let candidates = vec![non_existent_1, non_existent_2];
 
-        let resolved = super::resolve_player_path_from(
-            None,
-            None,
-            &candidates,
-        );
+        let resolved = super::resolve_player_path_from(None, None, &candidates);
         assert_eq!(resolved, PathBuf::from("player"));
     }
 }

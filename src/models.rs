@@ -216,7 +216,7 @@ impl Default for StreamSessionMeta {
 }
 
 /// The “flat” track you return from `/search`
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct ExtendedTrack {
     pub track_id: String,
     pub uri: String,
@@ -274,6 +274,7 @@ pub struct SimplePlaylist {
 pub enum WsMessage {
     Lyrics {
         track_id: String,
+        source: LyricsSource,
         background: u32,
         text_color: u32,
         highlight_color: u32,
@@ -300,7 +301,14 @@ pub enum WsMessage {
 
 pub type LyricsMessage = WsMessage;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LyricsSource {
+    Spotify,
+    Lrclib,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SimpleLyricLine {
     pub time_ms: u32,
     pub text: String,

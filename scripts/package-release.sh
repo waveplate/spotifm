@@ -196,8 +196,13 @@ mkdir -p "${TMP_STAGE}"
 cp "${BINARY_PATH}" "${TMP_STAGE}/spotifm"
 chmod 755 "${TMP_STAGE}/spotifm"
 
-# Copy player directory
-cp -r "${PLAYER_DIR}" "${TMP_STAGE}/player"
+# Copy player assets without local prefetch caches or Python runtime artifacts.
+mkdir -p "${TMP_STAGE}/player"
+tar -C "${PLAYER_DIR}" \
+    --exclude='./.demo-lyrics-cache' \
+    --exclude='__pycache__' \
+    --exclude='*.py[cod]' \
+    -cf - . | tar -C "${TMP_STAGE}/player" -xf -
 chmod -R u+rwX,go+rX "${TMP_STAGE}/player"
 
 # Copy optional metadata files if present

@@ -1,10 +1,10 @@
 # Lightweight Spotifm runtime container using the official install.sh script
 FROM alpine:3.21
 
-ARG VERSION=v3.1.0
+ARG VERSION=v3.2.0-beta
 ARG REPO=waveplate/spotifm
 
-RUN apk add --no-cache bash ca-certificates curl tar && \
+RUN apk add --no-cache bash ca-certificates curl openssl tar && \
     mkdir -p /app /config /root/.local/share/spotifm /root/.cache/spotifm && \
     curl -fsSL "https://raw.githubusercontent.com/${REPO}/${VERSION}/install.sh" | bash -s -- --version "${VERSION}" --repo "${REPO}" && \
     ln -sf /usr/local/share/spotifm/player /app/player && \

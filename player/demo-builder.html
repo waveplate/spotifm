@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spotifm | Demo Song Builder</title>
+    <style>
+:root { color-scheme: dark; font-family: system-ui, sans-serif; color: #efeaf8; background: #100d18; }
+* { box-sizing: border-box; }
+body { max-width: 1240px; margin: auto; padding: 32px 24px; }
+header, .section-heading, .actions, .search-row, .offset-row { display: flex; align-items: center; gap: 12px; }
+header, .section-heading { justify-content: space-between; }
+header { margin-bottom: 24px; }
+h1 { font-size: clamp(24px, 4vw, 34px); margin: 6px 0; letter-spacing: -.03em; }
+h2 { font-size: 18px; margin: 0 0 14px; }
+h3 { font-size: 14px; }
+p { font-size: 13px; line-height: 1.6; margin: 8px 0 14px; }
+header p, .muted, footer { color: #aaa0bb; }
+.eyebrow { color: #c4a1ff; font-size: 11px; font-weight: 600; letter-spacing: .2em; }
+main { display: grid; grid-template-columns: 285px minmax(0, 1fr); gap: 20px; align-items: start; }
+.workspace { display: grid; gap: 20px; }
+.card { background: #191421; border: 1px solid #352b44; border-radius: 16px; padding: 22px; min-width: 0; }
+aside { position: sticky; top: 20px; }
+button, .button, input, select, textarea { font: inherit; font-size: 13px; color: inherit; border: 1px solid #4b3d5e; border-radius: 8px; background: #231b2e; }
+button, .button { padding: 9px 12px; cursor: pointer; text-align: center; }
+button:hover, .button:hover { background: #392a4c; }
+.primary { color: #160e24; background: #c5a1ff; border-color: #c5a1ff; font-weight: 600; }
+.primary:hover { background: #dac2ff; }
+:focus-visible { outline: 2px solid #c5a1ff; outline-offset: 3px; }
+:disabled { opacity: .45; cursor: default; }
+input, select, textarea { width: 100%; padding: 9px 10px; min-width: 0; }
+input[type="checkbox"] { width: auto; }
+label { font-size: 12px; display: grid; gap: 7px; color: #c9bfd7; }
+textarea { resize: vertical; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+.wide { grid-column: 1 / -1; }
+.check { display: flex; align-items: center; }
+.search-row input { flex: 1; }
+.search-row button { flex-shrink: 0; }
+.notice { min-height: 38px; padding: 10px 14px; background: #211929; border-radius: 10px; }
+.error { color: #ffb7aa; }
+summary { color: #c8afe9; cursor: pointer; font-size: 12px; padding: 7px 0; }
+details { margin-top: 14px; }
+#song-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 7px; }
+#song-list button { width: 100%; text-align: left; display: grid; gap: 5px; }
+#song-list button[aria-current="true"] { background: #352348; border-color: #ba92f3; }
+.song-meta { color: #b4a7c4; font-size: 11px; }
+.subtle { background: transparent; width: 100%; font-size: 11px; }
+.results { display: grid; gap: 6px; max-height: 300px; overflow: auto; }
+.result { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 12px; }
+.result > span { display: grid; gap: 4px; }
+.result small { color: #b4a7c4; }
+#json-preview { height: 280px; font: 11px/1.5 monospace; }
+#selected-title { margin: 0; }
+.section-heading { margin-bottom: 14px; flex-wrap: wrap; }
+audio { width: 100%; height: 40px; margin-top: 8px; }
+.offset-row { flex-wrap: wrap; margin: 18px 0 8px; }
+.offset-row label { display: flex; align-items: center; flex-wrap: wrap; }
+.offset-row input { width: 115px; font-variant-numeric: tabular-nums; }
+.badge { border: 1px solid #654683; border-radius: 16px; padding: 3px 8px; color: #d4b6ff; font-size: 10px; font-weight: 400; margin-left: 7px; }
+.lyric-lines { max-height: 340px; overflow: auto; background: #120e19; border: 1px solid #30263c; border-radius: 10px; }
+.lyric-lines button { border: 0; border-radius: 0; width: 100%; display: flex; gap: 16px; background: transparent; text-align: left; padding: 10px 14px; }
+.lyric-lines button.active { background: #3b2851; color: #e3cdff; }
+.lyric-lines time { min-width: 40px; color: #ac91ce; font-variant-numeric: tabular-nums; }
+.lyric-lines button:hover { background: #2c203b; }
+footer { font-size: 12px; line-height: 1.6; margin-top: 28px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+[hidden] { display: none !important; }
+@media (max-width: 850px) { main { grid-template-columns: 1fr; } aside { position: static; } header { align-items: start; flex-wrap: wrap; } #song-list { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); } }
+@media (max-width: 520px) { body { padding: 20px 12px; } .card { padding: 16px; } .field-grid { grid-template-columns: 1fr; } .search-row { flex-wrap: wrap; } .search-row button { width: 100%; } }
+
+</style>
+</head>
+<body>
+    <header>
+        <div><span class="eyebrow">SPOTIFM</span><h1>Demo song builder</h1>
+            <p>Choose preview recordings, match their lyrics, and export your demo selection.</p></div>
+        <div class="actions">
+            <button id="import-json" type="button">Import JSON</button>
+            <input id="import-file" type="file" accept="application/json,.json" hidden>
+            <button id="export-json" class="primary" type="button">Export JSON</button>
+            <button id="export-lyrics" type="button">Export lyric bundle</button>
+        </div>
+    </header>
+    <p id="builder-status" class="notice" role="status" aria-live="polite">Your draft is saved in this browser.</p>
+    <main>
+        <aside class="card">
+            <h2>Demo selection <span id="song-count" class="muted"></span></h2>
+            <ol id="song-list"></ol>
+            <button id="reset-draft" class="subtle" type="button">Reset to bundled songs</button>
+            <details class="export-preview"><summary>JSON preview</summary><textarea id="json-preview" readonly aria-label="Exported demo JSON"></textarea></details>
+        </aside>
+        <div class="workspace">
+            <section class="card">
+                <h2>Add a song</h2>
+                <form id="catalog-search" class="search-row">
+                    <label class="sr-only" for="catalog-query">Song or artist to search</label>
+                    <input id="catalog-query" type="search" placeholder="Search any song or artist…" required>
+                    <button id="catalog-submit" type="submit">Search Apple previews</button>
+                </form>
+                <p id="catalog-status" class="muted" role="status"></p>
+                <div id="catalog-results" class="results"></div>
+                <details>
+                    <summary>Add by metadata or preview URL</summary>
+                    <form id="manual-add" class="field-grid">
+                        <label>Title<input name="title" required></label>
+                        <label>Artist<input name="artist" required></label>
+                        <label>Apple song ID<input name="appleSongId" type="number" min="1" step="1"></label>
+                        <label>HTTPS preview URL<input name="previewUrl" type="url" placeholder="https://…"></label>
+                        <p class="muted wide">Supply a song ID or a public audio URL. With neither, the builder searches for a matching Apple recording.</p>
+                        <button type="submit">Add song</button>
+                    </form>
+                </details>
+            </section>
+            <section id="song-editor" class="card" hidden>
+                <div class="section-heading"><h2 id="selected-title">Selected song</h2><div class="actions">
+                    <button id="move-up" type="button" aria-label="Move selected song up">↑</button>
+                    <button id="move-down" type="button" aria-label="Move selected song down">↓</button>
+                    <button id="remove-song" type="button">Remove</button>
+                </div></div>
+                <audio id="preview-audio" controls crossorigin="anonymous" loop preload="metadata"></audio>
+                <p id="preview-status" class="muted" role="status">Loading preview…</p>
+                <div class="offset-row">
+                    <label>Clip start / lyric offset<input id="edit-previewStartMs" type="number" step="0.001" placeholder="Not set"> seconds</label>
+                    <span id="song-clock" class="muted">Song time 0:00</span>
+                </div>
+                <p class="muted">Song time = preview time + offset. Negative values delay the lyrics. While listening, click a lyric line to align it with the current audio time.</p>
+                <div class="section-heading"><h3>Timed lyrics <span id="lyrics-provider" class="badge" hidden>LRCLIB</span></h3>
+                    <button id="search-lyrics" type="button">Find other lyric records</button></div>
+                <label class="record-label">Lyric record<select id="lyric-record" disabled><option>No record loaded</option></select></label>
+                <p id="lyrics-status" class="muted" role="status">Loading lyrics…</p>
+                <div id="lyric-lines" class="lyric-lines" aria-label="Timestamped lyrics"></div>
+                <details>
+                    <summary>Recording metadata and provider IDs</summary>
+                    <div class="field-grid">
+                        <label>Title<input id="edit-title" required></label>
+                        <label>Primary artist<input id="edit-artist" required></label>
+                        <label>Album<input id="edit-album"></label>
+                        <label>Full duration (seconds)<input id="edit-durationSec" type="number" min="0.001" step="0.001"></label>
+                        <label>Apple song ID<input id="edit-appleSongId" type="number" min="1" step="1"></label>
+                        <label>Spotify track ID<input id="edit-spotifyId"></label>
+                        <label class="wide">Direct HTTPS preview URL<input id="edit-previewUrl" type="url"></label>
+                        <label>Performers (one per line)<textarea id="edit-artists" rows="3"></textarea></label>
+                        <label>Accepted lyric titles (one per line)<textarea id="edit-lyricsTitles" rows="3"></textarea></label>
+                        <label>Pinned LRCLIB record ID<input id="edit-lrclibId" type="number" min="1" step="1"></label>
+                        <label class="check"><input id="edit-appleSearch" type="checkbox"> Search Apple when no song ID is set</label>
+                    </div>
+                    <button id="reload-song" type="button">Reload preview and lyrics</button>
+                </details>
+            </section>
+            <section id="empty-selection" class="card" hidden><h2>Your demo is empty</h2><p>Add a song above to start.</p></section>
+        </div>
+    </main>
+    <footer>Export the JSON, then use it to build the public demo. Only the exported selection appears in that page.</footer>
+    <script id="demo-builder-seed" type="application/json">[{"appleSongId":559947718,"title":"Gucci Gucci","artist":"Kreayshawn","album":"Somethin' 'Bout Kreay","previewStartMs":48600,"durationSec":188,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/1d/85/ff/1d85fffb-6730-03d9-6a34-2d5d31ecb452/886443578319.jpg/100x100bb.jpg","lrclibId":1006406},{"spotifyId":"2LzDhJgkVVKnfj8kYfe04T","appleSongId":1651430495,"title":"Contact Your Local Liquidator","artist":"Grim Salvo","artists":["Grim Salvo","Bruxism"],"album":"Mildred","durationSec":144,"previewStartMs":33000,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/a0/50/f1/a050f1c7-7713-fd9a-ac14-50022342dfd0/artwork.jpg/100x100bb.jpg","lrclibId":3595053},{"appleSongId":1636335578,"title":"1000 Blunts","artist":"$uicideboy$","album":"Sing Me a Lullaby, My Sweet Temptation","durationSec":175,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/ed/df/57/eddf5725-0a1c-7aef-7e03-a0d16af36d52/196925364928.jpg/100x100bb.jpg","previewStartMs":30200,"lrclibId":103877},{"appleSongId":1814205362,"title":"Mind Playing Tricks On Me","artist":"Geto Boys","album":"Rap-A-Lot Greatest Hits","previewStartMs":-700,"durationSec":311,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a5/d7/5d/a5d75d60-9df1-977f-804d-e29ba6de79c2/886444199698_Cover.jpg/100x100bb.jpg","lrclibId":12798695},{"appleSongId":1893174597,"title":"4EVER","artist":"Clairo","album":"4EVER - Single","previewStartMs":48500,"durationSec":160,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/ac/c2/33/acc2338d-1488-bf6a-f5f0-f58ef16784a5/829299180831.jpg/100x100bb.jpg","lrclibId":9574871},{"spotifyId":"3H662HkYuxhY11i1iu00JV","appleSongId":674893641,"title":"Doctor Worm","artist":"They Might Be Giants","album":"Severe Tire Damage","durationSec":182,"previewStartMs":30000,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music/v4/91/34/fb/9134fb2b-ec8d-a452-8f13-fe2d350b7977/886444144568.jpg/100x100bb.jpg","lrclibId":1260389},{"spotifyId":"78MI7mu1LV1k4IA2HzKmHe","appleSongId":1666680128,"title":"Dream A Little Dream Of Me","lyricsTitles":["Dream A Little Dream Of Me","Dream A Little Dream Of Me (Single Version)","Dream A Little Dream Of Me - Single Version"],"artist":"Ella Fitzgerald","artists":["Ella Fitzgerald","Louis Armstrong"],"album":"At Ease","durationSec":187,"previewStartMs":84000},{"appleSongId":665414588,"title":"Condemnation","artist":"Depeche Mode","album":"Songs of Faith and Devotion (Deluxe)","durationSec":209,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/d0/e0/ed/d0e0edf6-68d3-d385-5067-4317d47f70f0/0094637006757.jpg/100x100bb.jpg","previewStartMs":40500,"lrclibId":1315109},{"appleSongId":1065976176,"title":"The Trial","artist":"Pink Floyd","album":"The Wall","durationSec":319,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3e/17/ec/3e17ec6d-f980-c64f-19e0-a6fd8bbf0c10/886445635850.jpg/100x100bb.jpg","previewStartMs":48500,"lrclibId":16068},{"appleSongId":1862548508,"title":"BLOODSWEAT","artist":"$uicideboy$","album":"THY WILL BE DONE","durationSec":221,"coverUrl":"https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/a2/49/2d/a2492d4b-6ef4-a088-6359-29b094c56cbb/199806770627.jpg/100x100bb.jpg","previewStartMs":500,"lrclibId":26030181}]</script>
+    <script>
+// Preview audio and LRC parsing shared by the demo and song builder.
+(() => {
+    'use strict';
+
+    function normalized(value) {
+        return String(value || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    }
+
+    function artistKey(value) {
+        // $uicideboy$ and Suicideboys identify the same performer. Providers
+        // also vary collaborator order and use &, feat., or x as separators.
+        return normalized(String(value || '').replace(/\$/g, 's'))
+            .split(' ').filter(word => word && !['and', 'feat', 'featuring', 'ft', 'with', 'x'].includes(word))
+            .sort().join(' ');
+    }
+
+    function matchesArtist(value, track) {
+        const artists = [track.artist, ...(track.artists || [])].filter(Boolean);
+        const keys = artists.map(artistKey);
+        keys.push(artistKey((track.artists || [track.artist]).join(' ')));
+        return keys.includes(artistKey(value));
+    }
+
+    function parseLrc(lrc) {
+        const offset = Number(/\[offset:([+-]?\d+)\]/i.exec(lrc)?.[1] || 0);
+        const lines = [];
+        for (const row of lrc.split(/\r?\n/)) {
+            const timestamps = [...row.matchAll(/\[(\d+):(\d{2})(?:\.(\d{1,3}))?\]/g)];
+            const text = row.replace(/\[[^\]]*\]/g, '').trim();
+            for (const match of timestamps) {
+                if (Number(match[2]) >= 60) continue;
+                const fraction = Number((match[3] || '').padEnd(3, '0'));
+                lines.push({ time_ms: Math.max(0, Number(match[1]) * 60000 + Number(match[2]) * 1000 + fraction - offset), text });
+            }
+        }
+        return lines.sort((a, b) => a.time_ms - b.time_ms);
+    }
+
+    function hasTimedLyrics(result) {
+        return typeof result?.syncedLyrics === 'string' && parseLrc(result.syncedLyrics).some(line => line.text);
+    }
+
+    function formatTime(seconds) {
+        const value = Math.max(0, Math.floor(seconds || 0));
+        return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
+    }
+
+    let appleCallbackIndex = 0;
+    const appleTrackCache = new Map();
+    function appleRequest(endpoint, parameters) {
+        return new Promise((resolve, reject) => {
+            const callback = `spotifmApplePreview${++appleCallbackIndex}`;
+            const script = document.createElement('script');
+            let timeout;
+            const cleanup = (lateResponse = false) => {
+                window.clearTimeout(timeout);
+                script.remove();
+                if (lateResponse) {
+                    window[callback] = () => {};
+                    window.setTimeout(() => { delete window[callback]; }, 30000);
+                } else delete window[callback];
+            };
+            window[callback] = data => {
+                cleanup();
+                resolve(Array.isArray(data?.results) ? data.results : []);
+            };
+            script.onerror = () => { cleanup(true); reject(new Error('Could not load Apple preview metadata')); };
+            timeout = window.setTimeout(() => { cleanup(true); reject(new Error('Apple preview request timed out')); }, 15000);
+            script.src = `https://itunes.apple.com/${endpoint}?${new URLSearchParams({ ...parameters, country: 'us', callback })}`;
+            script.async = true;
+            document.head.appendChild(script);
+        });
+    }
+
+    async function searchAppleSongs(query) {
+        const results = await appleRequest('search', { term: query, entity: 'song', media: 'music', limit: '50' });
+        return results.filter(result => result.kind === 'song');
+    }
+
+    function lookupAppleTrack(track) {
+        const id = track.appleSongId;
+        const key = id || JSON.stringify([track.title, track.artist, track.artists, track.album, track.durationSec]);
+        if (appleTrackCache.has(key)) return appleTrackCache.get(key);
+        const lookup = (async () => {
+            const results = id ? await appleRequest('lookup', { id: String(id) })
+                : await searchAppleSongs(`${track.title} ${(track.artists || [track.artist]).join(' ')}`);
+            const matches = results.filter(result => result.kind === 'song' && (id ? Number(result.trackId) === id
+                : normalized(result.trackName) === normalized(track.title) && matchesArtist(result.artistName, track) &&
+                    (!track.durationSec || Math.abs(result.trackTimeMillis / 1000 - track.durationSec) <= 2)));
+            const song = matches.filter(result => result.previewUrl).sort((a, b) =>
+                Number(normalized(b.collectionName) === normalized(track.album)) -
+                Number(normalized(a.collectionName) === normalized(track.album)))[0];
+            if (!song?.previewUrl || new URL(song.previewUrl).protocol !== 'https:') {
+                throw new Error('No public preview is available for this recording');
+            }
+            return song;
+        })();
+        appleTrackCache.set(key, lookup);
+        void lookup.catch(() => { appleTrackCache.delete(key); });
+        return lookup;
+    }
+
+    function applyAppleMetadata(track, song) {
+        track.appleSongId = Number(song.trackId);
+        track.previewUrl = song.previewUrl;
+        if (Number.isFinite(song.trackTimeMillis) && song.trackTimeMillis > 0) track.durationSec = Math.round(song.trackTimeMillis / 1000);
+        if (song.collectionName) track.album = song.collectionName;
+        if (song.artworkUrl100) track.coverUrl = song.artworkUrl100;
+    }
+
+    window.SpotifmDemoMedia = { normalized, matchesArtist, parseLrc, formatTime, hasTimedLyrics,
+        searchAppleSongs, lookupAppleTrack, applyAppleMetadata };
+})();
+
+</script>
+    <script>
+// Live LRCLIB lookups belong to the authoring tool, not the public demo.
+(() => {
+    'use strict';
+    const { normalized, matchesArtist, parseLrc, hasTimedLyrics } = window.SpotifmDemoMedia;
+
+    async function lrclibRequest(path, signal) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const response = await fetch(`https://lrclib.net/api/${path}`, { signal, credentials: 'omit' });
+            if (response.status === 404) return null;
+            if (response.ok) return response.json();
+            if (attempt === 4 || ![429, 500, 502, 503, 504].includes(response.status)) {
+                throw new Error(`LRCLIB returned HTTP ${response.status}`);
+            }
+            const retry = Number(response.headers.get('Retry-After'));
+            const delay = Number.isFinite(retry) && retry > 0 ? Math.min(30, retry) : 2 ** (attempt + 1);
+            await new Promise((resolve, reject) => {
+                const abort = () => { window.clearTimeout(timer); reject(new DOMException('Request cancelled', 'AbortError')); };
+                const timer = window.setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, delay * 1000);
+                if (signal?.aborted) abort();
+                else signal?.addEventListener('abort', abort, { once: true });
+            });
+        }
+    }
+
+    function rankedLyrics(candidates, track) {
+        const titles = [track.title, ...(track.lyricsTitles || [])].map(normalized);
+        return candidates.filter(result => hasTimedLyrics(result) && titles.includes(normalized(result.trackName)) &&
+            matchesArtist(result.artistName, track)).sort((a, b) => {
+                // Duration ranks recordings rather than silently discarding
+                // lyrics from a differently trimmed release of the same song.
+                const delta = result => track.durationSec && Number.isFinite(result.duration)
+                    ? Math.abs(result.duration - track.durationSec) : 0;
+                return delta(a) - delta(b) || Number(normalized(b.albumName) === normalized(track.album)) -
+                    Number(normalized(a.albumName) === normalized(track.album));
+            });
+    }
+
+    async function searchLyrics(track, signal) {
+        const titles = [...new Set([track.title, ...(track.lyricsTitles || [])])];
+        const found = new Map();
+        const add = results => {
+            for (const result of Array.isArray(results) ? results : []) if (hasTimedLyrics(result)) found.set(result.id, result);
+        };
+        // Try the provider spelling and a spelling without dollar-sign aliases.
+        const artists = [...new Set([track.artist, track.artist.replace(/\$/g, 's')])];
+        for (const artist of artists) {
+            add(await lrclibRequest(`search?${new URLSearchParams({ track_name: track.title, artist_name: artist })}`, signal));
+        }
+        // Title-only search catches differing collaborator separators/names.
+        // The automatic picker still checks title and performer identity.
+        for (const title of titles) {
+            add(await lrclibRequest(`search?${new URLSearchParams({ track_name: title })}`, signal));
+        }
+        const candidates = [...found.values()];
+        const ranked = rankedLyrics(candidates, track);
+        return [...ranked, ...candidates.filter(result => !ranked.includes(result))];
+    }
+
+    const lyricsMemoryCache = new Map();
+    function lyricsCacheKey(track) {
+        return JSON.stringify([track.appleSongId || track.spotifyId || track.previewUrl,
+            track.title, track.artist, track.artists || [], track.album || '', track.durationSec || null,
+            track.lrclibId || null, track.lyricsTitles || []]);
+    }
+
+    function readLyricsCache(key) {
+        if (lyricsMemoryCache.has(key)) return lyricsMemoryCache.get(key);
+        try {
+            const entry = JSON.parse(window.localStorage.getItem(`spotifm_demo_lrclib:${key}`));
+            if (entry?.version === 2 && hasTimedLyrics(entry.lyrics)) {
+                lyricsMemoryCache.set(key, entry.lyrics);
+                return entry.lyrics;
+            }
+        } catch (_) { /* Storage is optional. */ }
+        return null;
+    }
+
+    function cacheLyrics(track, lyrics) {
+        if (!hasTimedLyrics(lyrics)) return;
+        const key = lyricsCacheKey(track);
+        lyricsMemoryCache.set(key, lyrics);
+        try {
+            window.localStorage.setItem(`spotifm_demo_lrclib:${key}`, JSON.stringify({ version: 2, lyrics }));
+        } catch (_) { /* Full or blocked storage does not prevent playback. */ }
+    }
+
+    async function getLyrics(track, signal, refresh = false) {
+        const cached = !refresh && readLyricsCache(lyricsCacheKey(track));
+        if (cached) return cached;
+        let result;
+        if (track.lrclibId) {
+            result = await lrclibRequest(`get/${track.lrclibId}`, signal);
+            if (!hasTimedLyrics(result)) return null;
+        } else {
+            const params = new URLSearchParams({ track_name: track.title, artist_name: track.artist });
+            if (track.album) params.set('album_name', track.album);
+            if (track.durationSec) params.set('duration', String(track.durationSec));
+            const exact = track.album && track.durationSec ? await lrclibRequest(`get?${params}`, signal) : null;
+            result = rankedLyrics(exact ? [exact] : [], track)[0];
+            if (!result) result = rankedLyrics(await searchLyrics(track, signal), track)[0];
+        }
+        if (result) cacheLyrics(track, result);
+        return result || null;
+    }
+
+    function validateTracks(tracks) {
+        if (!Array.isArray(tracks) || !tracks.length) throw new Error('Choose at least one demo song.');
+        for (const track of tracks) {
+            if (!track || typeof track.title !== 'string' || !track.title.trim() || typeof track.artist !== 'string' || !track.artist.trim()) {
+                throw new Error('Every song needs a title and artist.');
+            }
+            if (track.spotifyId !== undefined && !/^[A-Za-z0-9]{22}$/.test(track.spotifyId)) throw new Error(`${track.title}: invalid Spotify ID.`);
+            if (track.appleSongId !== undefined && (!Number.isSafeInteger(track.appleSongId) || track.appleSongId <= 0)) throw new Error(`${track.title}: invalid Apple song ID.`);
+            if (track.appleSearch !== undefined && typeof track.appleSearch !== 'boolean') throw new Error(`${track.title}: appleSearch must be a boolean.`);
+            if (track.previewUrl && (typeof track.previewUrl !== 'string' || new URL(track.previewUrl).protocol !== 'https:')) throw new Error(`${track.title}: use an HTTPS preview URL.`);
+            if (!track.previewUrl && !track.appleSongId && !track.appleSearch) throw new Error(`${track.title}: choose an Apple song or supply a preview URL.`);
+            if (track.previewStartMs != null && !Number.isFinite(track.previewStartMs)) throw new Error(`${track.title}: offset must be a finite number or null.`);
+            if (track.durationSec !== undefined && (!Number.isFinite(track.durationSec) || track.durationSec <= 0)) throw new Error(`${track.title}: duration must be positive.`);
+            if (track.lrclibId !== undefined && (!Number.isSafeInteger(track.lrclibId) || track.lrclibId <= 0)) throw new Error(`${track.title}: invalid LRCLIB ID.`);
+            for (const field of ['artists', 'lyricsTitles']) {
+                if (track[field] !== undefined && (!Array.isArray(track[field]) || track[field].some(value => typeof value !== 'string' || !value.trim()))) {
+                    throw new Error(`${track.title}: ${field} must be a list of names.`);
+                }
+            }
+        }
+        return tracks;
+    }
+
+    window.SpotifmDemoCatalog = { ...window.SpotifmDemoMedia,
+        searchLyrics, getLyrics, cacheLyrics, validateTracks };
+})();
+
+</script>
+    <script>
+(() => {
+    'use strict';
+    const catalog = window.SpotifmDemoCatalog;
+    const seed = JSON.parse(document.getElementById('demo-builder-seed').textContent);
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const draftKey = 'spotifm_demo_builder_draft:v1';
+    const element = id => document.getElementById(id);
+    const audio = element('preview-audio');
+    const status = element('builder-status');
+    const recordSelect = element('lyric-record');
+    const lineContainer = element('lyric-lines');
+    let tracks = clone(seed);
+    let selected = -1;
+    let generation = 0;
+    let lyricRequest = null;
+    let searchGeneration = 0;
+    let records = [];
+    let lines = [];
+    let activeLine = -1;
+    let exportingLyrics = false;
+    try {
+        const draft = JSON.parse(window.localStorage.getItem(draftKey));
+        if (Array.isArray(draft?.tracks)) {
+            if (draft.tracks.length) catalog.validateTracks(draft.tracks);
+            tracks = draft.tracks;
+        }
+    } catch (_) { /* Start with the bundled selection when storage is unavailable or invalid. */ }
+
+    const stringFields = ['title', 'artist', 'album', 'spotifyId', 'previewUrl'];
+    const numberFields = ['durationSec', 'appleSongId', 'lrclibId'];
+    const listFields = ['artists', 'lyricsTitles'];
+    const current = () => tracks[selected];
+
+    function message(text, error = false) {
+        status.textContent = text;
+        status.classList.toggle('error', error);
+    }
+
+    function downloadFile(text, filename, type) {
+        const url = URL.createObjectURL(new Blob([text], { type }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function canonical(value) {
+        if (Array.isArray(value)) return value.map(canonical);
+        if (value !== null && typeof value === 'object') {
+            return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+        }
+        return value;
+    }
+
+    function saveDraft() {
+        element('json-preview').value = JSON.stringify(tracks, null, 2) + '\n';
+        try { window.localStorage.setItem(draftKey, JSON.stringify({ tracks })); }
+        catch (_) { /* Export remains available without browser storage. */ }
+        renderSelection();
+    }
+
+    function renderSelection() {
+        const list = element('song-list');
+        list.replaceChildren();
+        element('song-count').textContent = `(${tracks.length})`;
+        element('export-json').disabled = !tracks.length;
+        element('export-lyrics').disabled = !tracks.length || exportingLyrics;
+        tracks.forEach((track, index) => {
+            const item = document.createElement('li');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.setAttribute('aria-current', String(index === selected));
+            const title = document.createElement('span');
+            title.textContent = track.title || 'Untitled song';
+            const metadata = document.createElement('span');
+            metadata.className = 'song-meta';
+            const offset = Number.isFinite(track.previewStartMs) ? `${track.previewStartMs / 1000}s` : 'Offset not set';
+            metadata.textContent = `${track.artist} · ${offset}`;
+            button.append(title, metadata);
+            button.addEventListener('click', () => selectTrack(index));
+            item.appendChild(button);
+            list.appendChild(item);
+        });
+        element('move-up').disabled = selected <= 0;
+        element('move-down').disabled = selected < 0 || selected >= tracks.length - 1;
+    }
+
+    function fillFields() {
+        const track = current();
+        if (!track) return;
+        element('selected-title').textContent = `${track.title} — ${track.artist}`;
+        for (const field of [...stringFields, ...numberFields]) element(`edit-${field}`).value = track[field] ?? '';
+        for (const field of listFields) element(`edit-${field}`).value = (track[field] || []).join('\n');
+        element('edit-appleSearch').checked = Boolean(track.appleSearch);
+        element('edit-previewStartMs').value = Number.isFinite(track.previewStartMs) ? track.previewStartMs / 1000 : '';
+    }
+
+    function cancelRequests() {
+        generation += 1;
+        lyricRequest?.abort();
+        lyricRequest = null;
+    }
+
+    function selectTrack(index) {
+        cancelRequests();
+        selected = index;
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        records = [];
+        lines = [];
+        activeLine = -1;
+        lineContainer.replaceChildren();
+        recordSelect.replaceChildren(new Option('No record loaded', ''));
+        recordSelect.disabled = true;
+        element('lyrics-provider').hidden = true;
+        const track = current();
+        element('song-editor').hidden = !track;
+        element('empty-selection').hidden = Boolean(track);
+        renderSelection();
+        if (!track) return;
+        fillFields();
+        element('preview-status').textContent = 'Loading preview…';
+        element('lyrics-status').textContent = 'Looking for timed lyrics…';
+        void loadPreview(track, generation);
+        void loadLyrics(track, generation);
+        updateHighlight();
+    }
+
+    async function loadPreview(track, requestGeneration) {
+        try {
+            const playbackTrack = { ...track };
+            if (!playbackTrack.previewUrl) {
+                const song = await catalog.lookupAppleTrack(playbackTrack);
+                if (requestGeneration !== generation || current() !== track) return;
+                catalog.applyAppleMetadata(playbackTrack, song);
+                // Export stable song IDs; the provider's CDN URL is resolved
+                // at playback time. Explicit direct URLs remain in the JSON.
+                track.appleSongId = playbackTrack.appleSongId;
+                track.durationSec = playbackTrack.durationSec;
+                track.album = playbackTrack.album;
+                track.coverUrl = playbackTrack.coverUrl;
+                delete track.appleSearch;
+                const record = records.find(result => result.id === track.lrclibId);
+                if (record) catalog.cacheLyrics(track, record);
+                fillFields();
+                saveDraft();
+            }
+            if (requestGeneration !== generation || current() !== track) return;
+            audio.src = playbackTrack.previewUrl;
+            element('preview-status').textContent = 'Play the clip, then align a lyric line or enter its start time.';
+        } catch (error) {
+            if (requestGeneration === generation && current() === track) {
+                element('preview-status').textContent = `${error.message}. You can still choose lyrics or supply another preview URL.`;
+            }
+        }
+    }
+
+    function showRecord(result) {
+        const track = current();
+        if (!track || !catalog.hasTimedLyrics(result)) return;
+        track.lrclibId = Number(result.id);
+        element('edit-lrclibId').value = track.lrclibId;
+        catalog.cacheLyrics(track, result);
+        if (!records.some(record => record.id === result.id)) records.unshift(result);
+        renderRecords();
+        recordSelect.value = String(result.id);
+        lines = catalog.parseLrc(result.syncedLyrics);
+        activeLine = -1;
+        lineContainer.replaceChildren();
+        for (const line of lines) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.title = 'Align this lyric with the current preview time';
+            const time = document.createElement('time');
+            time.textContent = catalog.formatTime(line.time_ms / 1000);
+            const words = document.createElement('span');
+            words.textContent = line.text || 'Instrumental';
+            button.append(time, words);
+            button.addEventListener('click', () => {
+                track.previewStartMs = Math.round(line.time_ms - audio.currentTime * 1000);
+                element('edit-previewStartMs').value = track.previewStartMs / 1000;
+                saveDraft();
+                updateHighlight();
+                message(`Offset saved: ${track.previewStartMs / 1000}s.`);
+            });
+            lineContainer.appendChild(button);
+        }
+        element('lyrics-provider').hidden = false;
+        element('lyrics-status').textContent = `LRCLIB record ${result.id} pinned for export. Click a line to align it with the audio.`;
+        saveDraft();
+        updateHighlight();
+    }
+
+    function renderRecords() {
+        recordSelect.replaceChildren(new Option('Choose a timed lyric record', ''));
+        for (const result of records) {
+            recordSelect.appendChild(new Option(`${result.trackName} — ${result.artistName} · ${result.albumName || 'No album'} · ${catalog.formatTime(result.duration)} · #${result.id}`, String(result.id)));
+        }
+        recordSelect.disabled = !records.length;
+    }
+
+    async function loadLyrics(track, requestGeneration, search = false) {
+        lyricRequest?.abort();
+        const request = new AbortController();
+        lyricRequest = request;
+        const timeout = window.setTimeout(() => request.abort(), 45000);
+        element('lyrics-status').textContent = search ? 'Searching timed lyric records…' : 'Loading timed lyrics…';
+        try {
+            const metadata = { ...track };
+            if (search) {
+                const found = await catalog.searchLyrics(metadata, request.signal);
+                if (requestGeneration !== generation || current() !== track || lyricRequest !== request) return;
+                const selectedRecord = records.find(record => record.id === track.lrclibId);
+                records = found;
+                if (selectedRecord && !records.some(record => record.id === selectedRecord.id)) records.unshift(selectedRecord);
+                renderRecords();
+                recordSelect.value = track.lrclibId ? String(track.lrclibId) : '';
+                element('lyrics-status').textContent = records.length
+                    ? `${records.length} timed records found. Choose the recording that matches your clip.`
+                    : 'No timed records found. Try another title or artist spelling in the metadata.';
+            } else {
+                const result = await catalog.getLyrics(metadata, request.signal);
+                if (requestGeneration !== generation || current() !== track || lyricRequest !== request) return;
+                if (result) showRecord(result);
+                else element('lyrics-status').textContent = 'No matching timed lyrics found. Search other records or enter a LRCLIB record ID below.';
+            }
+        } catch (error) {
+            if (requestGeneration === generation && current() === track && lyricRequest === request) {
+                element('lyrics-status').textContent = error.name === 'AbortError' ? 'Lyric lookup timed out. Try again.' : error.message;
+            }
+        } finally {
+            window.clearTimeout(timeout);
+            if (lyricRequest === request) lyricRequest = null;
+        }
+    }
+
+    function updateHighlight() {
+        const track = current();
+        if (!track) return;
+        const position = audio.currentTime * 1000 + (track.previewStartMs || 0);
+        const absolute = Math.abs(position);
+        element('song-clock').textContent = `Song time ${position < 0 ? '−' : ''}${catalog.formatTime(absolute / 1000)}.${Math.floor(absolute % 1000 / 100)}`;
+        let next = -1;
+        for (let index = 0; index < lines.length && lines[index].time_ms <= position; index++) next = index;
+        if (next === activeLine) return;
+        lineContainer.children[activeLine]?.classList.remove('active');
+        activeLine = next;
+        const active = lineContainer.children[activeLine];
+        active?.classList.add('active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function metadataChanged() {
+        cancelRequests();
+        saveDraft();
+        element('selected-title').textContent = `${current().title} — ${current().artist}`;
+        message('Draft saved. Reload preview and lyrics to apply the edited metadata.');
+    }
+
+    for (const field of stringFields) {
+        element(`edit-${field}`).addEventListener('input', event => {
+            if (!current()) return;
+            const value = event.target.value.trim();
+            if (value || ['title', 'artist'].includes(field)) current()[field] = value;
+            else delete current()[field];
+            metadataChanged();
+        });
+    }
+    for (const field of numberFields) {
+        element(`edit-${field}`).addEventListener('input', event => {
+            if (!current()) return;
+            if (event.target.value === '') delete current()[field];
+            else if (Number.isFinite(event.target.valueAsNumber)) current()[field] = event.target.valueAsNumber;
+            else return;
+            metadataChanged();
+        });
+    }
+    for (const field of listFields) {
+        element(`edit-${field}`).addEventListener('input', event => {
+            if (!current()) return;
+            const values = event.target.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+            if (values.length) current()[field] = values;
+            else delete current()[field];
+            metadataChanged();
+        });
+    }
+    element('edit-appleSearch').addEventListener('change', event => {
+        if (!current()) return;
+        current().appleSearch = event.target.checked;
+        metadataChanged();
+    });
+    element('edit-previewStartMs').addEventListener('input', event => {
+        if (!current()) return;
+        if (event.target.value === '') current().previewStartMs = null;
+        else if (Number.isFinite(event.target.valueAsNumber)) current().previewStartMs = Math.round(event.target.valueAsNumber * 1000);
+        else return;
+        saveDraft();
+        updateHighlight();
+    });
+
+    audio.addEventListener('timeupdate', updateHighlight);
+    audio.addEventListener('seeked', updateHighlight);
+    audio.addEventListener('error', () => {
+        if (audio.error) element('preview-status').textContent = 'The preview could not be played. Choose another recording or supply a working HTTPS preview URL.';
+    });
+    element('reload-song').addEventListener('click', () => {
+        try { catalog.validateTracks([current()]); selectTrack(selected); }
+        catch (error) { message(error.message, true); }
+    });
+    element('search-lyrics').addEventListener('click', () => {
+        if (current()?.title && current()?.artist) void loadLyrics(current(), generation, true);
+    });
+    recordSelect.addEventListener('change', () => {
+        const record = records.find(result => String(result.id) === recordSelect.value);
+        if (record) {
+            lyricRequest?.abort();
+            lyricRequest = null;
+            showRecord(record);
+        }
+    });
+    element('remove-song').addEventListener('click', () => {
+        if (!current()) return;
+        tracks.splice(selected, 1);
+        selectTrack(tracks.length ? Math.min(selected, tracks.length - 1) : -1);
+        saveDraft();
+        message('Song removed from the demo selection.');
+    });
+    function moveSong(direction) {
+        const target = selected + direction;
+        if (target < 0 || target >= tracks.length || selected < 0) return;
+        [tracks[selected], tracks[target]] = [tracks[target], tracks[selected]];
+        selected = target;
+        saveDraft();
+    }
+    element('move-up').addEventListener('click', () => moveSong(-1));
+    element('move-down').addEventListener('click', () => moveSong(1));
+    element('reset-draft').addEventListener('click', () => {
+        tracks = clone(seed);
+        selectTrack(tracks.length ? 0 : -1);
+        saveDraft();
+        message('Restored the selection bundled with this builder.');
+    });
+
+    function addTrack(track) {
+        catalog.validateTracks([track]);
+        tracks.push(track);
+        selectTrack(tracks.length - 1);
+        saveDraft();
+        message(`Added ${track.title}.`);
+    }
+    element('manual-add').addEventListener('submit', event => {
+        event.preventDefault();
+        const data = new FormData(event.target);
+        const track = { title: data.get('title').trim(), artist: data.get('artist').trim(), previewStartMs: null };
+        if (data.get('appleSongId')) track.appleSongId = Number(data.get('appleSongId'));
+        if (data.get('previewUrl')) track.previewUrl = data.get('previewUrl').trim();
+        if (!track.appleSongId && !track.previewUrl) track.appleSearch = true;
+        try { addTrack(track); event.target.reset(); }
+        catch (error) { message(error.message, true); }
+    });
+    element('catalog-search').addEventListener('submit', async event => {
+        event.preventDefault();
+        const query = element('catalog-query').value.trim();
+        if (!query) return;
+        const searchId = ++searchGeneration;
+        element('catalog-status').textContent = 'Searching Apple recordings…';
+        element('catalog-results').replaceChildren();
+        element('catalog-submit').disabled = true;
+        try {
+            const results = await catalog.searchAppleSongs(query);
+            if (searchId !== searchGeneration) return;
+            element('catalog-status').textContent = results.length ? `${results.length} recordings found. Select the version with the preview you want.` : 'No recordings found.';
+            for (const song of results) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'result';
+                button.disabled = !song.previewUrl;
+                const details = document.createElement('span');
+                const title = document.createElement('span');
+                title.textContent = `${song.trackName} — ${song.artistName}`;
+                const album = document.createElement('small');
+                album.textContent = `${song.collectionName} · ${catalog.formatTime(song.trackTimeMillis / 1000)}`;
+                details.append(title, album);
+                const action = document.createElement('small');
+                action.textContent = song.previewUrl ? 'Add preview' : 'No preview';
+                button.append(details, action);
+                button.addEventListener('click', () => {
+                    const track = { appleSongId: Number(song.trackId), title: song.trackName, artist: song.artistName,
+                        album: song.collectionName, durationSec: Math.round(song.trackTimeMillis / 1000),
+                        coverUrl: song.artworkUrl100, previewStartMs: null };
+                    const artists = song.artistName.split(/\s+(?:&|feat\.?|ft\.?|and|x)\s+/i);
+                    if (artists.length > 1) track.artists = artists;
+                    try { addTrack(track); } catch (error) { message(error.message, true); }
+                });
+                element('catalog-results').appendChild(button);
+            }
+        } catch (error) {
+            if (searchId === searchGeneration) element('catalog-status').textContent = error.message;
+        } finally {
+            if (searchId === searchGeneration) element('catalog-submit').disabled = false;
+        }
+    });
+
+    element('import-json').addEventListener('click', () => element('import-file').click());
+    element('import-file').addEventListener('change', async event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+            const imported = JSON.parse(await file.text());
+            catalog.validateTracks(imported);
+            tracks = imported;
+            selectTrack(0);
+            saveDraft();
+            message(`Imported ${tracks.length} demo songs.`);
+        } catch (error) { message(`Import failed: ${error.message}`, true); }
+        finally { event.target.value = ''; }
+    });
+    element('export-json').addEventListener('click', () => {
+        try {
+            if (current()) {
+                for (const input of element('song-editor').querySelectorAll('input')) {
+                    if (!input.reportValidity()) return;
+                }
+            }
+            catalog.validateTracks(tracks);
+            downloadFile(JSON.stringify(tracks, null, 2) + '\n', 'demo-tracks.json', 'application/json');
+            message(`Exported ${tracks.length} songs. Use this JSON with player/build.sh --demo-only --demo-tracks <file>.`);
+        } catch (error) { message(error.message, true); }
+    });
+
+    element('export-lyrics').addEventListener('click', async () => {
+        if (exportingLyrics) return;
+        const snapshot = clone(tracks);
+        const request = new AbortController();
+        exportingLyrics = true;
+        renderSelection();
+        try {
+            catalog.validateTracks(snapshot);
+            if (!window.crypto?.subtle) throw new Error('Open the builder on localhost or HTTPS to export a lyric bundle.');
+            const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonical(snapshot))));
+            const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+            const output = [{ type: 'manifest', version: 1, tracks_sha256: hash, track_count: snapshot.length }];
+            for (let index = 0; index < snapshot.length; index++) {
+                message(`Prefetching lyrics ${index + 1}/${snapshot.length}: ${snapshot[index].title}…`);
+                const timeout = window.setTimeout(() => request.abort(), 90000);
+                let result;
+                try { result = await catalog.getLyrics(snapshot[index], request.signal); }
+                finally { window.clearTimeout(timeout); }
+                if (!catalog.hasTimedLyrics(result)) throw new Error(`${snapshot[index].title}: choose a timed lyric record before exporting.`);
+                const bytes = new TextEncoder().encode(result.syncedLyrics);
+                const encoded = btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''));
+                output.push({ track_index: index, source: 'lrclib', lrclib_id: result.id, lyrics_base64: encoded });
+            }
+            // Editing while downloads run would give this bundle a different
+            // fingerprint from the current manifest. Keep that mismatch visible.
+            if (JSON.stringify(canonical(tracks)) !== JSON.stringify(canonical(snapshot))) {
+                throw new Error('The selection changed while lyrics were loading. Export the JSON and lyric bundle again. Cached lyrics will be reused.');
+            }
+            downloadFile(output.map(record => JSON.stringify(record)).join('\n') + '\n', 'demo-lyrics.jsonl', 'application/x-ndjson');
+            message(`Exported ${snapshot.length} bundled lyric records. Build with the matching song JSON and --lyrics-bundle <file>.`);
+        } catch (error) {
+            message(error.name === 'AbortError' ? 'Lyric prefetch timed out. Retry to reuse the songs already cached.' : error.message, true);
+        } finally {
+            exportingLyrics = false;
+            renderSelection();
+        }
+    });
+
+    selectTrack(tracks.length ? 0 : -1);
+    saveDraft();
+})();
+
+</script>
+</body>
+</html>

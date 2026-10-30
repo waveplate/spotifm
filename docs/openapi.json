@@ -3,7 +3,7 @@
   "info": {
     "title": "Spotifm API",
     "description": "personal web radio server powered by Spotify.",
-    "version": "3.0.7-alpha"
+    "version": "3.2.0-beta"
   },
   "servers": [
     {
@@ -31,7 +31,7 @@
     "/search/{category}/{limit}": {
       "get": {
         "summary": "Search Spotify",
-        "description": "Search tracks, albums, artists, or playlists by query.",
+        "description": "Search tracks, albums, artists, or playlists by query, with automatic anonymous web-player fallback when the Web API fails.",
         "parameters": [
           {
             "name": "category",
@@ -69,6 +69,15 @@
         "responses": {
           "200": {
             "description": "Search results",
+            "headers": {
+              "X-Spotify-Source": {
+                "description": "Spotify catalogue provider used for this response",
+                "schema": {
+                  "type": "string",
+                  "enum": ["spotify_web_api", "spotify_anonymous"]
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -95,6 +104,25 @@
           },
           "400": {
             "description": "Invalid category or limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit returned by Spotify",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before making another request to the rate-limited Spotify provider",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1649,6 +1677,20 @@
         "properties": {
           "error": {
             "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "spotify",
+              "spotify_anonymous"
+            ],
+            "description": "Present for upstream Spotify failures"
+          },
+          "retry_after_seconds": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Spotify retry interval when supplied"
           }
         }
       },
@@ -1826,6 +1868,7 @@
         "required": [
           "type",
           "track_id",
+          "source",
           "lines"
         ],
         "properties": {
@@ -1837,6 +1880,14 @@
           },
           "track_id": {
             "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "spotify",
+              "lrclib"
+            ],
+            "description": "Provider of the displayed timed lyrics, including cached LRCLIB results."
           },
           "background": {
             "type": "integer"

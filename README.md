@@ -1,4 +1,4 @@
-# spotifm (3.1.0)
+# spotifm (3.2.0-beta)
 
 ![spotifm](assets/spotifm.avif)
 
@@ -8,6 +8,10 @@
 > a spotify premium subscription is required to use ***spotifm***
 
 ## changes/new features
+
+This beta adds automatic search and catalogue fallback, a standalone player
+demo for static hosting, and LRCLIB synced lyrics. See the
+[release notes](docs/releases/3.2.0-beta.md) for details and beta installation.
 
 * **standalone web radio**
    - no longer requiring co-deployment with icecast and ices
@@ -29,7 +33,7 @@
 #### one-liner
 
 > [!NOTE]
-> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.1.0/install.sh | bash`***
+> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.2.0-beta/install.sh | bash -s -- --version 3.2.0-beta`***
 > 
 
 will work on all x64 linux systems, probably the way to go if you're not using docker
@@ -55,7 +59,7 @@ docker run -d \
   -p 3443:3443 \
   -v ${HOME}/.local/share/spotifm:/root/.local/share/spotifm \
   --name spotifm \
-  waveplate/spotifm:latest
+  waveplate/spotifm:3.2.0-beta
 ```
 
 or with docker-compose:
@@ -63,7 +67,7 @@ or with docker-compose:
 ```
 git clone https://github.com/waveplate/spotifm
 cd spotifm
-docker compose up -d spotifm
+SPOTIFM_IMAGE=waveplate/spotifm:3.2.0-beta docker compose up -d spotifm
 ```
 
 </details>
@@ -101,6 +105,8 @@ this endpoint will automatically redirect you to spotify's oauth authorization p
 
 - if running locally, http://127.0.0.1:3333
 - if running on a remote server, https://server.ip.or.domain:3443
+- standalone preview demo: [player/demo.html](player/demo.html) ([setup and sample timing](player/DEMO.md))
+- curate and export demo songs: [player/demo-builder.html](player/demo-builder.html)
 
 #### using the /listen endpoint
 

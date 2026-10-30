@@ -1,7 +1,7 @@
 use crate::models::Command;
+use crate::spotify::SpotifyClient;
 use librespot::core::session::Session;
 use librespot::playback::config::PlayerConfig;
-use rspotify::AuthCodePkceSpotify;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::PathBuf;
@@ -14,8 +14,7 @@ use warp::Filter;
 pub struct AppState {
     pub session: std::sync::Mutex<Session>,
     pub player_cfg: PlayerConfig,
-    pub spotify: AuthCodePkceSpotify,
-    pub spotify_tokens: crate::spotify::SpotifyTokenManager,
+    pub spotify: SpotifyClient,
     pub cmd_tx: UnboundedSender<Command>,
     pub playlist_file: Option<PathBuf>,
     pub start_time: Arc<Mutex<Option<Instant>>>,
@@ -35,12 +34,8 @@ pub struct AppState {
 const ACTIVE_STREAM_SESSION_TTL: Duration = Duration::from_secs(15);
 
 impl AppState {
-    pub async fn refresh_spotify_token(&self) -> rspotify::ClientResult<()> {
-        self.spotify_tokens.refresh(&self.spotify).await
-    }
-
     pub async fn ensure_spotify_token(&self) -> rspotify::ClientResult<()> {
-        self.spotify_tokens.ensure_fresh(&self.spotify).await
+        self.spotify.ensure_fresh().await
     }
 
     pub fn active_listener_count(&self) -> u32 {

@@ -1,0 +1,57 @@
+.demo-panel {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(580px, calc(100vw - 150px));
+    z-index: 29;
+    padding: 15px 18px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 18px;
+    background: rgba(15, 12, 23, .75);
+    backdrop-filter: blur(18px);
+    color: #fff;
+    font: 12px/1.5 Inter, sans-serif;
+    box-sizing: border-box;
+}
+.demo-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 10px; color: #bcb5cd; }
+.demo-heading > :first-child { color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .16em; }
+.demo-controls, .demo-seek-row { display: flex; align-items: center; gap: 8px; }
+.demo-track-label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.demo-panel select, .demo-panel button {
+    color: #fff; background: #24202e; border: 1px solid #534a62; border-radius: 8px;
+    padding: 7px 9px; font: inherit;
+}
+.demo-panel select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.demo-panel button { cursor: pointer; }
+.demo-panel button:hover { background: #3b324c; }
+.demo-panel :focus-visible { outline: 2px solid #be9af8; outline-offset: 3px; }
+.demo-panel :disabled { opacity: .5; cursor: default; }
+.demo-seek-row { margin-top: 10px; }
+.demo-seek { flex: 1; min-width: 0; accent-color: #c4a6ef; height: 18px; padding: 0; }
+.demo-clock { font-variant-numeric: tabular-nums; white-space: nowrap; color: #c6bdcf; }
+.demo-caption { display: flex; flex-wrap: wrap; gap: 3px 12px; justify-content: space-between; margin-top: 6px; color: #bcb5cd; font-size: 10px; }
+.demo-sources { white-space: nowrap; }
+.demo-panel a { color: #cdb4ef; }
+.demo-status.demo-error { color: #f2bfac; }
+.demo-settings-hint { margin-top: 12px; padding-top: 10px; border-top: 1px solid #51435f; color: #c9bed6; font-size: 11px; }
+.spotifm-demo .lyrics-source-badge {
+    top: auto;
+    left: auto;
+    right: max(20px, env(safe-area-inset-right));
+    bottom: max(20px, env(safe-area-inset-bottom));
+}
+.spotifm-demo [data-settings-section-target="api-key"],
+.spotifm-demo [data-settings-section="api-key"],
+.spotifm-demo #toggle-search-btn,
+.spotifm-demo #toggle-playlist-btn,
+.spotifm-demo #toggle-active-playlist-btn { display: none !important; }
+@media (max-width: 600px) {
+    .demo-panel { top: max(12px, env(safe-area-inset-top)); left: 12px; transform: none; width: calc(100vw - 76px); padding: 10px; }
+    .demo-track-label { font-size: 0; gap: 0; }
+    .demo-track-label select { font-size: 11px; }
+    .demo-controls { gap: 5px; }
+    .demo-controls { flex-wrap: wrap; }
+    .demo-track-label { flex-basis: 100%; }
+    .demo-panel button { padding: 7px; }
+}

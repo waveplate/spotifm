@@ -440,6 +440,15 @@ pub async fn playback_manager(
     let mut track_start_samples: Option<u64> = None;
     let mut position_track_id: Option<String> = None;
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(cli.lyrics_interval));
+    let lyrics_http = crate::lyrics::http_client();
+    let lyrics_cache_dir = crate::cache_paths::spotifm_cache_dir(cli.playlist_path.as_deref())
+        .join("lyrics")
+        .join("lrclib");
+    let (lyrics_tx, mut lyrics_rx) =
+        tokio::sync::mpsc::unbounded_channel::<(u64, String, crate::models::LyricsMessage)>();
+    let mut lyrics_task: Option<tokio::task::JoinHandle<()>> = None;
+    let mut lyrics_generation = 0u64;
+    let mut lyrics_track_id: Option<String> = None;
 
     // initial play
     if !playlist.is_empty() {
@@ -461,6 +470,23 @@ pub async fn playback_manager(
     }
 
     loop {
+        // Discard pending lookups as soon as a command selects a different
+        // track, including before its TrackChanged event arrives.
+        let selected_track_id = current.as_ref().map(|track| track.track_id.clone());
+        if selected_track_id != lyrics_track_id {
+            if let Some(task) = lyrics_task.take() {
+                task.abort();
+            }
+            lyrics_generation += 1;
+            lyrics_track_id = selected_track_id;
+            let msg = if lyrics_track_id.is_some() {
+                crate::models::LyricsMessage::NoLyrics
+            } else {
+                crate::models::LyricsMessage::Idle
+            };
+            *state.current_lyrics.lock().unwrap() = Some(msg.clone());
+            let _ = state.tx_lyrics_ws.send(msg);
+        }
         // preload next
         if next_preload.is_none() {
             if let Some((_, ni)) = select_next(&playlist, playlist_idx) {
@@ -474,6 +500,14 @@ pub async fn playback_manager(
         }
 
         tokio::select! {
+            Some((generation, track_id, msg)) = lyrics_rx.recv() => {
+                if generation == lyrics_generation
+                    && current.as_ref().is_some_and(|track| track.track_id == track_id)
+                {
+                    *state.current_lyrics.lock().unwrap() = Some(msg.clone());
+                    let _ = state.tx_lyrics_ws.send(msg);
+                }
+            }
             // ——— High-precision WebSocket Sync Ticks ———
             _ = interval.tick() => {
                 if let Some(start_time) = start_instant {
@@ -1354,56 +1388,33 @@ pub async fn playback_manager(
                                 let _ = state.tx_lyrics_ws.send(crate::models::WsMessage::NowPlaying(np));
                             }
 
-                            // Spawn background task to fetch Spotify synced lyrics
-                            let state_clone = state.clone();
-                            let track_id_uri = audio_item.track_id.clone();
-                            tokio::spawn(async move {
-                                if let SpotifyUri::Track { id } = track_id_uri {
-                                    println!("[Lyrics] Fetching synced lyrics for track {}", id.to_base62().unwrap());
-                                    use librespot_metadata::lyrics::Lyrics;
-                                     let session_cloned = state_clone.session.lock().unwrap().clone();
-                                     match Lyrics::get(&session_cloned, &id).await {
-                                        Ok(lyrics_reply) => {
-                                            use librespot_metadata::lyrics::SyncType;
-                                            if lyrics_reply.lyrics.sync_type == SyncType::LineSynced {
-                                                let lines = lyrics_reply.lyrics.lines.into_iter().map(|line| {
-                                                    let time_ms = line.start_time_ms.parse::<u32>().unwrap_or(0);
-                                                    crate::models::SimpleLyricLine {
-                                                        time_ms,
-                                                        text: line.words,
-                                                    }
-                                                }).collect();
+                            if let Some(task) = lyrics_task.take() {
+                                task.abort();
+                            }
+                            lyrics_generation += 1;
+                            let generation = lyrics_generation;
+                            let msg = crate::models::LyricsMessage::NoLyrics;
+                            *state.current_lyrics.lock().unwrap() = Some(msg.clone());
+                            let _ = state.tx_lyrics_ws.send(msg);
 
-                                                let msg = crate::models::LyricsMessage::Lyrics {
-                                                    track_id: id.to_base62().unwrap(),
-                                                    background: lyrics_reply.colors.background as u32,
-                                                    text_color: lyrics_reply.colors.text as u32,
-                                                    highlight_color: lyrics_reply.colors.highlight_text as u32,
-                                                    lines,
-                                                };
-
-                                                // Cache in State and broadcast to all connected WebSocket clients
-                                                *state_clone.current_lyrics.lock().unwrap() = Some(msg.clone());
-                                                let _ = state_clone.tx_lyrics_ws.send(msg);
-                                                println!("[Lyrics] Synced lyrics successfully cached and broadcasted.");
-                                            } else {
-                                                println!("[Lyrics] Track has unsynced lyrics; not supported.");
-                                                let msg = crate::models::LyricsMessage::NoLyrics;
-                                                *state_clone.current_lyrics.lock().unwrap() = Some(msg.clone());
-                                                let _ = state_clone.tx_lyrics_ws.send(msg);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            println!("[Lyrics] Synced lyrics not available for this track: {}", e);
-                                            let msg = crate::models::LyricsMessage::NoLyrics;
-                                            *state_clone.current_lyrics.lock().unwrap() = Some(msg.clone());
-                                            let _ = state_clone.tx_lyrics_ws.send(msg);
-                                        }
-                                    }
-                                }
-                            });
+                            if let Some(track_id) = position_track_id.clone()
+                                .filter(|id| current.as_ref().is_some_and(|track| track.track_id == *id))
+                            {
+                                let session = state.session.lock().unwrap().clone();
+                                let client = lyrics_http.clone();
+                                let cache_dir = lyrics_cache_dir.clone();
+                                let tx = lyrics_tx.clone();
+                                lyrics_task = Some(tokio::spawn(async move {
+                                    let msg = crate::lyrics::fetch(&session, &client, &audio_item, &cache_dir).await;
+                                    let _ = tx.send((generation, track_id, msg));
+                                }));
+                            }
                         }
                         PlayerEvent::EndOfTrack { .. } | PlayerEvent::Unavailable { .. } => {
+                            if let Some(task) = lyrics_task.take() {
+                                task.abort();
+                            }
+                            lyrics_generation += 1;
                             println!("[{timestamp}] [PlayerEvent] Event: {event:?}");
 
                             if matches!(event, PlayerEvent::Unavailable { .. }) {
@@ -1419,6 +1430,7 @@ pub async fn playback_manager(
                                     Ok(new_session) => {
                                         // Overwrite the session in state
                                         *state.session.lock().unwrap() = new_session.clone();
+                                        state.spotify.catalog.set_session(new_session.clone());
 
                                         // Recreate the player and event channel
                                         let state_for_sink = state.clone();

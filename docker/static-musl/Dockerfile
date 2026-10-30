@@ -182,14 +182,14 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="\
 -C link-arg=-lc \
 -C link-arg=-Wl,--end-group"
 
-RUN cargo build --target x86_64-unknown-linux-musl --release
+RUN cargo build --target x86_64-unknown-linux-musl --release --locked
 
 # ==============================================================================
 # Stage 3: Minimal runtime container
 # ==============================================================================
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates openssl
 
 WORKDIR /app
 

@@ -19,11 +19,14 @@ macro_rules! eprintln {
     }};
 }
 
+mod anonymous;
 mod audio;
 mod cache_paths;
+mod catalog;
 mod cli;
 mod handlers;
 mod logging;
+mod lyrics;
 mod models;
 mod spotify;
 mod state;
@@ -532,7 +535,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let rconfig = RConfig {
         cache_path: token_cache_path.clone(),
         token_cached: true,
-        token_refreshing: true,
+        token_refreshing: false,
         ..Default::default()
     };
     let rcreds = RCreds::new_pkce(&cli.client_id);
@@ -548,15 +551,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Check if we have a valid cached token
     let mut has_token = false;
-    if let Ok(Some(tok)) = spotify.read_token_cache(true).await {
-        // ncspot's token mapper leaves this field empty, so an empty set means
-        // "unknown" rather than "no scopes" for imported tokens.
-        let cached_scopes_are_sufficient = tok.scopes.is_empty()
-            || WEB_API_SCOPES
-                .iter()
-                .all(|scope| tok.scopes.contains(*scope));
+    // Reuse only tokens with known required scopes. An imported ncspot token
+    // with unknown scopes must trigger fresh Web API authorization, as it did
+    // with rspotify's cache reader, instead of silently reusing that grant.
+    if let Ok(tok) = rspotify::Token::from_cache(&token_cache_path) {
+        let cached_scopes_are_sufficient = WEB_API_SCOPES
+            .iter()
+            .all(|scope| tok.scopes.contains(*scope));
         let token_is_expired = tok.is_expired();
-        if !cached_scopes_are_sufficient {
+        if tok.refresh_token.as_deref().is_none_or(str::is_empty) {
+            println!(
+                "[OAuth/Web API] Cached token has no refresh token. Reauthorization is required."
+            );
+        } else if tok.scopes.is_empty() {
+            println!(
+                "[OAuth/Web API] Cached token has unknown scopes; fresh Web API authorization is required."
+            );
+        } else if !cached_scopes_are_sufficient {
             let missing_scopes = WEB_API_SCOPES
                 .iter()
                 .filter(|scope| !tok.scopes.contains(**scope))
@@ -572,18 +583,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 eprintln!("[OAuth/Web API] ⚠️ Failed to refresh expired cached token: {e}");
             } else {
                 has_token = true;
-                println!("[OAuth/Web API] Refreshed expired cached token.");
+                println!(
+                    "[OAuth/Web API] Refreshed expired cached token. source=cached_refresh, client_id={}",
+                    cli.client_id
+                );
             }
         } else {
             *spotify.token.lock().await.unwrap() = Some(tok);
             has_token = true;
-            println!("[OAuth/Web API] Loaded cached token; it is still valid.");
+            println!(
+                "[OAuth/Web API] Loaded cached token; it is still valid. source=cache, configured_client_id={}",
+                cli.client_id
+            );
         }
     }
 
     if !has_token {
         authorize_with_gateway(&mut spotify, &cli, &tls_files, "Web API").await?;
-        println!("[OAuth/Web API] Token successfully cached.");
+        println!(
+            "[OAuth/Web API] Token successfully cached. source=fresh_oauth, client_id={}",
+            cli.client_id
+        );
     }
 
     let bitrate = match cli.bitrate {
@@ -635,10 +655,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // 5) Command channel & shared state
     let (cmd_tx, cmd_rx) = unbounded_channel();
     let state = Arc::new(AppState {
-        session: std::sync::Mutex::new(session),
+        session: std::sync::Mutex::new(session.clone()),
         player_cfg,
-        spotify,
-        spotify_tokens: Default::default(),
+        spotify: spotify::SpotifyClient::new(spotify).with_session(session),
         cmd_tx: cmd_tx.clone(),
         playlist_file: cli.playlist_path.clone(),
         start_time: Arc::new(Mutex::new(None)),
@@ -655,46 +674,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         stream_sessions: Arc::new(Mutex::new(std::collections::HashMap::new())),
     });
 
-    // 5.5) Refresh only the Web API token based on its advertised expiry.
-    // The reusable librespot playback session has an independent lifecycle.
+    // Recheck expiry regularly, including after clock changes or a refresh
+    // triggered by an API request. Missing expiry also requires a refresh.
     let state_for_refresh = state.clone();
     tokio::spawn(async move {
         loop {
-            let mut sleep_duration = std::time::Duration::from_secs(45 * 60);
-
-            if let Some(token) = state_for_refresh
-                .spotify
-                .token
-                .lock()
-                .await
-                .unwrap()
-                .as_ref()
-            {
-                if let Some(expires_at) = token.expires_at {
-                    let now = chrono::Utc::now();
-                    let diff = expires_at.signed_duration_since(now);
-                    // Refresh 5 minutes (300 seconds) before expiration
-                    let target_secs = diff.num_seconds() - 300;
-                    if target_secs > 0 {
-                        sleep_duration = std::time::Duration::from_secs(target_secs as u64);
-                    } else {
-                        // Already within 5 minutes or expired; refresh in 5 seconds
-                        sleep_duration = std::time::Duration::from_secs(5);
-                    }
-                }
-            }
-
-            println!(
-                "[OAuth/Web API] Next token refresh scheduled in {:.1} minutes.",
-                sleep_duration.as_secs_f64() / 60.0
-            );
-            tokio::time::sleep(sleep_duration).await;
-
-            println!("[OAuth/Web API] Background token refresh started.");
-            if let Err(e) = state_for_refresh.refresh_spotify_token().await {
+            if let Err(e) = state_for_refresh.ensure_spotify_token().await {
                 eprintln!("[OAuth/Web API] ⚠️ Failed periodic token refresh: {e}");
-                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
             }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
     });
 

@@ -6,6 +6,28 @@
         const runtimeConfig = runtimeConfigElement
             ? JSON.parse(runtimeConfigElement.textContent || '{}')
             : {};
+        const IS_DEMO = Boolean(runtimeConfig.demo);
+        let demoSource = null;
+        let demoPlaybackRequest = 0;
+        // Demo settings share an origin safely with the live player.
+        const playerStorage = {
+            getItem(key) {
+                try { return window.localStorage.getItem(IS_DEMO ? `demo:${key}` : key); }
+                catch (_) { return null; }
+            },
+            setItem(key, value) {
+                try { window.localStorage.setItem(IS_DEMO ? `demo:${key}` : key, value); }
+                catch (_) { /* Storage may be blocked when opening a local file. */ }
+            },
+            clear() {
+                try {
+                    for (const key of ['spotifm_player_version', 'spotifm_player_settings',
+                        'spotifm_custom_fonts', 'spotifm_last_settings_section']) {
+                        window.localStorage.removeItem(IS_DEMO ? `demo:${key}` : key);
+                    }
+                } catch (_) { /* Storage is optional. */ }
+            },
+        };
         const IS_SINGLE_FILE_BUILD_SOURCE = window.location.protocol === 'file:';
         const LYRICS_WS_STALL_MS = 6000;
         const LYRICS_WS_RECOVERY_COOLDOWN_MS = 5000;
@@ -16,24 +38,24 @@
         const AUDIO_STALL_TIMEOUT_MS = 10000;
         const AUDIO_RECONNECT_BASE_DELAY_MS = 1000;
         const AUDIO_RECONNECT_MAX_DELAY_MS = 10000;
-        const SPOTIFM_PLAYER_VERSION = 57;
+        const SPOTIFM_PLAYER_VERSION = 67;
 
         // Check if saved localStorage version matches/exceeds current version, otherwise clear it.
         (function checkLocalStorageVersion() {
             try {
-                const savedVersionStr = localStorage.getItem('spotifm_player_version');
+                const savedVersionStr = playerStorage.getItem('spotifm_player_version');
                 const savedVersion = savedVersionStr ? parseInt(savedVersionStr, 10) : null;
 
                 if (savedVersion === null || isNaN(savedVersion) || savedVersion < SPOTIFM_PLAYER_VERSION) {
-                    console.log(`Local storage version mismatch (saved: ${savedVersion}, current: ${SPOTIFM_PLAYER_VERSION}). Clearing local storage.`);
+                    console.log(`Local storage version mismatch (saved: ${savedVersion}, current: ${SPOTIFM_PLAYER_VERSION}). Resetting player settings.`);
                     
                     let customFontsBackup = null;
                     try {
-                        const savedCustom = localStorage.getItem('spotifm_custom_fonts');
+                        const savedCustom = playerStorage.getItem('spotifm_custom_fonts');
                         if (savedCustom) {
                             customFontsBackup = JSON.parse(savedCustom);
                         } else {
-                            const savedSettingsStr = localStorage.getItem('spotifm_player_settings');
+                            const savedSettingsStr = playerStorage.getItem('spotifm_player_settings');
                             if (savedSettingsStr) {
                                 const parsed = JSON.parse(savedSettingsStr);
                                 if (parsed && Array.isArray(parsed.customFonts)) {
@@ -45,11 +67,11 @@
                         console.error('Failed to backup custom fonts on localStorage version mismatch:', err);
                     }
 
-                    localStorage.clear();
-                    localStorage.setItem('spotifm_player_version', String(SPOTIFM_PLAYER_VERSION));
+                    playerStorage.clear();
+                    playerStorage.setItem('spotifm_player_version', String(SPOTIFM_PLAYER_VERSION));
 
                     if (Array.isArray(customFontsBackup)) {
-                        localStorage.setItem('spotifm_custom_fonts', JSON.stringify(customFontsBackup));
+                        playerStorage.setItem('spotifm_custom_fonts', JSON.stringify(customFontsBackup));
                     }
                 }
             } catch (e) {
@@ -63,6 +85,7 @@
                 : {};
         const wasmDecoderNamespace = window["ogg-vorbis-decoder"];
         const wasmPlaybackRequired = Boolean(
+            !IS_DEMO &&
             !IS_SINGLE_FILE_BUILD_SOURCE &&
             runtimeConfig.streamIsPassthrough === true
         );
@@ -98,11 +121,20 @@
         const songTitle = document.getElementById('song-title');
         const songArtists = document.getElementById('song-artists');
         const syncStatus = document.getElementById('sync-status');
+        const lyricsSourceBadge = document.getElementById('lyrics-source');
         const listenerCount = document.getElementById('listener-count');
         const trackProgressFill = document.getElementById('track-progress-fill');
         const trackInfo = document.querySelector('.track-info');
 
         const syncStatusBadge = document.getElementById('sync-status-badge');
+
+        function updateLyricsSource(source) {
+            if (!lyricsSourceBadge) return;
+            const provider = source === 'spotify' ? 'Spotify' : source === 'lrclib' ? 'LRCLIB' : null;
+            lyricsSourceBadge.hidden = !provider;
+            lyricsSourceBadge.textContent = provider ? `Lyrics · ${provider}` : '';
+            lyricsSourceBadge.dataset.source = provider ? source : '';
+        }
         
         function updateSyncStatusIcon() {
             const svgLyrics = document.getElementById('sync-svg-lyrics');
@@ -845,6 +877,7 @@
         }
 
         function buildStreamUrl() {
+            if (IS_DEMO) return demoSource?.track?.previewUrl || '';
             const url = new URL(listenEndpoint, window.location.origin);
             url.searchParams.set('sid', streamSessionId);
             return url.toString();
@@ -886,6 +919,7 @@
 
         function scheduleAudioReconnect(reason) {
             if (
+                IS_DEMO ||
                 IS_SINGLE_FILE_BUILD_SOURCE ||
                 !wantsAudioStreamConnection() ||
                 audioReconnectTimer ||
@@ -978,6 +1012,7 @@
         }
 
         function maybeRecoverAudioStream() {
+            if (IS_DEMO) return;
             const now = performance.now();
             if (
                 (now - audioRecoveryLastCheckedAt) < 1000 ||
@@ -1374,6 +1409,58 @@
         }
 
         async function initializeAudioStream() {
+            if (IS_DEMO) {
+                document.body.classList.add('spotifm-demo');
+                demoSource = new window.SpotifmDemoSource(audio, runtimeConfig.demo, {
+                    onPlay: () => { void playPlayerPlayback(); },
+                    onPause: () => { void pausePlayerPlayback(); },
+                    onTrack: (track, metadataOnly = false) => {
+                        applyNowPlayingState({
+                            track_id: demoSource.trackId,
+                            track_name: track.title,
+                            artists: track.artists || [track.artist],
+                            album_name: track.album,
+                            cover_url: track.coverUrl || '',
+                            track_duration_ms: 30000,
+                            position_ms: 0,
+                            status: 'playing',
+                        });
+                        if (metadataOnly) return;
+                        confirmedPlaybackTrackId = demoSource.trackId;
+                        awaitingPlaybackTrackConfirmation = false;
+                        clearDisplayedLyricsHold();
+                        clearPendingLyricsTransition();
+                        currentLyricsStateType = null;
+                        currentLyricsTrackId = null;
+                        updateLyricsSource(null);
+                        syncedLines = [];
+                        renderPlaceholder('Loading lyrics', 'Loading bundled synced lyrics');
+                        updateAutoSyncStatus();
+                    },
+                    onLyrics: (lines) => {
+                        applyLyricsState(lines && lines.some(line => line.text)
+                            ? { type: 'Lyrics', track_id: demoSource.trackId, source: 'lrclib', lines }
+                            : { type: 'NoLyrics' });
+                        lyricsScrollFreezeUntilMs = 0;
+                        updateAutoSyncStatus();
+                        updateLyricsHighlight(true);
+                    },
+                    onDuration: (durationMs) => {
+                        currentTrackDurationMs = durationMs;
+                        updateTrackProgressDisplay();
+                    },
+                    onSeek: () => {
+                        lyricsScrollFreezeUntilMs = 0;
+                        updateLyricsHighlight(true);
+                        updateTrackProgressDisplay();
+                    },
+                    onAudioError: () => { void pausePlayerPlayback(); },
+                });
+                demoSource.selectTrack(0);
+                setActivePlaylistHasTracks(demoSource.tracks.length > 0);
+                setPlaybackGestureRequired(true);
+                return;
+            }
             if (IS_SINGLE_FILE_BUILD_SOURCE) {
                 return;
             }
@@ -2298,10 +2385,12 @@
             if (state.type === 'Lyrics') {
                 currentLyricsStateType = 'Lyrics';
                 currentLyricsTrackId = state.track_id || null;
+                updateLyricsSource(state.source);
                 renderLyrics(state.lines);
             } else if (state.type === 'NoLyrics') {
                 currentLyricsStateType = 'NoLyrics';
                 currentLyricsTrackId = null;
+                updateLyricsSource(null);
                 renderPlaceholder("Not Available", "No lyrics available for this track");
             }
             updateSyncStatusIcon();
@@ -2415,7 +2504,7 @@
                 albumPlaceholder.style.display = 'flex';
             }
 
-            if (track.track_id) {
+            if (track.track_id && (!IS_DEMO || /^[A-Za-z0-9]{22}$/.test(track.track_id))) {
                 currentTrackId = track.track_id;
                 titleContainer.classList.remove('no-link');
             } else {
@@ -2493,9 +2582,9 @@
                 return;
             }
 
-            const heardPositionMs = isPlaying
-                ? getInterpolatedPositionMs()
-                : currentTrackPositionMs;
+            const heardPositionMs = IS_DEMO
+                ? audio.currentTime * 1000
+                : (isPlaying ? getInterpolatedPositionMs() : currentTrackPositionMs);
             const clampedPositionMs = Math.max(0, Math.min(currentTrackDurationMs, heardPositionMs));
             const progressRatio = currentTrackDurationMs > 0
                 ? clampedPositionMs / currentTrackDurationMs
@@ -2505,6 +2594,12 @@
         }
 
         function updateAutoSyncStatus() {
+            if (IS_DEMO) {
+                syncStatus.textContent = !isAutosync ? 'Manual Delay'
+                    : currentLyricsStateType === 'NoLyrics' ? 'No Lyrics'
+                    : currentLyricsStateType === 'Lyrics' && demoSource?.timingKnown ? 'Lyrics Synced' : 'Syncing';
+                return;
+            }
             if (!isAutosync) {
                 syncStatus.textContent = 'Manual Delay';
                 return;
@@ -2756,6 +2851,8 @@
         }
 
         async function requestAudiblePlayback(markPlaying = true) {
+            const demoGeneration = demoSource?.generation;
+            const demoRequest = IS_DEMO ? ++demoPlaybackRequest : 0;
             if (wasmPlaybackEnabled) {
                 try {
                     if (!playbackRequested || !isPlaying) {
@@ -2794,10 +2891,15 @@
             const resumePromise = resumeAudioContextWithTimeout(1200);
 
             try {
+                if (IS_DEMO) {
+                    if (!demoSource || !(await demoSource.previewReady)) return false;
+                    if (demoGeneration !== demoSource.generation || demoRequest !== demoPlaybackRequest) return false;
+                }
                 if (audio.paused) {
                     await audio.play();
                 }
                 const contextReady = await resumePromise;
+                if (IS_DEMO && (demoGeneration !== demoSource?.generation || demoRequest !== demoPlaybackRequest)) return false;
                 if (!contextReady) {
                     throw new DOMException('AudioContext requires a user gesture', 'NotAllowedError');
                 }
@@ -2809,6 +2911,7 @@
                 }
                 return !audio.paused;
             } catch (error) {
+                if (IS_DEMO && (demoGeneration !== demoSource?.generation || demoRequest !== demoPlaybackRequest)) return false;
                 console.error('[Audio] Could not start audible playback:', error);
                 if (error && error.name === 'NotAllowedError') {
                     playbackRequested = false;
@@ -2817,11 +2920,21 @@
                     setPlaybackGestureRequired(true);
                     setPlayState('paused');
                 } else {
-                    scheduleAudioReconnect('Audible playback failed');
+                    if (IS_DEMO) {
+                        playbackRequested = false;
+                        audio.pause();
+                        setPlayState('paused');
+                        // A rapid sample change cancels the old play request.
+                        if (!error || error.name !== 'AbortError') {
+                            showPlayerNotice('Could not play this preview. Try another sample.', 'error');
+                        }
+                    } else {
+                        scheduleAudioReconnect('Audible playback failed');
+                    }
                 }
                 return false;
             } finally {
-                audioContextActivationPending = false;
+                if (!IS_DEMO || demoRequest === demoPlaybackRequest) audioContextActivationPending = false;
             }
         }
 
@@ -2878,6 +2991,10 @@
         }
 
         async function pausePlayerPlayback() {
+            if (IS_DEMO) {
+                demoPlaybackRequest += 1;
+                audioContextActivationPending = false;
+            }
             if (wasmPlaybackEnabled) {
                 if (playbackRequested || isPlaying) {
                     await pauseWasmPlayback();
@@ -2910,6 +3027,10 @@
         let remoteTrackChangePromise = null;
 
         function requestRemoteTrackChange(step) {
+            if (IS_DEMO) {
+                demoSource?.step(step < 0 ? -1 : 1, playbackRequested);
+                return Promise.resolve(null);
+            }
             if (remoteTrackChangePromise) {
                 return remoteTrackChangePromise;
             }
@@ -3089,6 +3210,7 @@
                 }
 
                 const contextReady = await resumeAudioContextWithTimeout();
+                if (IS_DEMO && !playbackRequested) return;
                 if (!contextReady) {
                     playbackRequested = false;
                     mutedAutoplayPriming = true;
@@ -3170,6 +3292,7 @@
         });
 
         audio.addEventListener('ended', () => {
+            if (IS_DEMO) return;
             scheduleAudioReconnect('Audio stream ended');
         });
 
@@ -3772,7 +3895,8 @@
         }
 
         function getLastSettingsSection() {
-            return localStorage.getItem('spotifm_last_settings_section') || 'lyrics';
+            const section = playerStorage.getItem('spotifm_last_settings_section') || 'lyrics';
+            return IS_DEMO && section === 'api-key' ? 'lyrics' : section;
         }
 
         function setActiveSettingsSection(sectionName) {
@@ -3789,7 +3913,7 @@
                 button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
 
-            localStorage.setItem('spotifm_last_settings_section', activeSectionName);
+            playerStorage.setItem('spotifm_last_settings_section', activeSectionName);
         }
 
         function setTransientButtonAccess(element, isAccessible) {
@@ -3903,6 +4027,7 @@
         let nowPlayingHttpRequestInFlight = false;
 
         function scheduleWebSocketReconnect() {
+            if (IS_DEMO) return;
             if (wsReconnectTimer) {
                 return;
             }
@@ -3987,6 +4112,7 @@
         }
 
         async function fetchNowPlayingSnapshot(reason = 'refresh') {
+            if (IS_DEMO) return;
             if (nowPlayingHttpRequestInFlight) {
                 return false;
             }
@@ -4016,6 +4142,7 @@
         }
 
         function maybeRefreshNowPlayingSnapshot() {
+            if (IS_DEMO) return;
             if (!isPlaying || !isWaitingForNowPlayingSnapshot()) {
                 return;
             }
@@ -4034,6 +4161,7 @@
         }
 
         function connectWebSocket() {
+            if (IS_DEMO) return;
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
                 return;
             }
@@ -4139,6 +4267,7 @@
                         clearPendingLyricsTransition();
                         currentLyricsTrackId = null;
                         currentLyricsStateType = null;
+                        updateLyricsSource(null);
                         currentPlaybackTrackId = null;
                         confirmedPlaybackTrackId = null;
                         currentTrackDurationMs = null;
@@ -4192,7 +4321,7 @@
             };
         }
 
-        if (!IS_SINGLE_FILE_BUILD_SOURCE) {
+        if (!IS_DEMO && !IS_SINGLE_FILE_BUILD_SOURCE) {
             connectWebSocket();
         }
 
@@ -4313,6 +4442,10 @@
         }
 
         function getInterpolatedPositionMs() {
+            if (IS_DEMO) {
+                const offset = isAutosync ? autoSyncLyricsOffsetSec : -manualDelaySec;
+                return Math.max(0, (audio.currentTime + offset) * 1000);
+            }
             if (!isPlaying) {
                 return 0;
             }
@@ -7165,11 +7298,11 @@
         // ntscStrengthSlider removed
 
         function saveSettings() {
-            localStorage.setItem(
+            playerStorage.setItem(
                 'spotifm_player_settings',
                 JSON.stringify(getCurrentSettingsSnapshot())
             );
-            localStorage.setItem(
+            playerStorage.setItem(
                 'spotifm_custom_fonts',
                 JSON.stringify(customFonts)
             );
@@ -7656,7 +7789,7 @@
 
             // Restore custom fonts list from dedicated storage if present
             try {
-                const storedCustomFonts = localStorage.getItem('spotifm_custom_fonts');
+                const storedCustomFonts = playerStorage.getItem('spotifm_custom_fonts');
                 if (storedCustomFonts) {
                     const parsed = JSON.parse(storedCustomFonts);
                     if (Array.isArray(parsed)) {
@@ -7667,7 +7800,7 @@
                 console.error('Error loading custom fonts from dedicated storage:', e);
             }
 
-            const saved = localStorage.getItem('spotifm_player_settings');
+            const saved = playerStorage.getItem('spotifm_player_settings');
             if (!saved) {
                 return;
             }
@@ -8022,35 +8155,62 @@
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
         const searchResults = document.getElementById('search-results');
+        let searchRequest = null;
+
+        function showSearchMessage(text, error = false) {
+            const message = document.createElement('div');
+            message.style.cssText = `color: ${error ? '#ef4444' : '#6b7280'}; text-align: center; margin-top: 40px; font-size: 14px; white-space: pre-line;`;
+            message.textContent = text;
+            searchResults.replaceChildren(message);
+        }
 
         async function performSearch() {
             if (!searchInput || !searchResults) return;
             const q = searchInput.value.trim();
             if (!q) return;
+            const category = activeSearchCat;
+            const key = `${category}:${q}`;
+            if (searchRequest?.key === key) return;
+            searchRequest?.controller.abort();
+            const request = { key, controller: new AbortController() };
+            searchRequest = request;
 
-            searchResults.innerHTML = '<div style="color: #6b7280; text-align: center; margin-top: 40px; font-size: 14px;">Searching...</div>';
+            showSearchMessage('Searching…');
 
             try {
-                let url = `/search/${activeSearchCat}/20?q=${encodeURIComponent(q)}`;
+                let url = `/search/${category}/20?q=${encodeURIComponent(q)}`;
                 if (apiKeyEnabled && apiKey) {
                     url += `&api_key=${encodeURIComponent(apiKey)}`;
                 }
 
-                const response = await fetch(url);
+                const response = await fetch(url, { signal: request.controller.signal });
+                if (searchRequest !== request) return;
                 if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        searchResults.innerHTML = `<div style="color: #ef4444; text-align: center; margin-top: 40px; font-size: 14px;">Auth Error: ${response.statusText} (${response.status})<br>Check your API Key in Settings.</div>`;
+                    const detail = await response.json().catch(() => null);
+                    if (searchRequest !== request) return;
+                    if (response.status === 429) {
+                        const retry = Number(response.headers.get('Retry-After') || detail?.retry_after_seconds);
+                        const seconds = Number.isFinite(retry) && retry > 0 ? Math.ceil(retry) : 30;
+                        showSearchMessage(`Spotify is rate limiting requests. Try again in ${seconds} seconds.`, true);
+                    } else if (['spotify', 'spotify_anonymous'].includes(detail?.source) && typeof detail.error === 'string') {
+                        showSearchMessage(detail.error, true);
+                    } else if (response.status === 401 || response.status === 403) {
+                        showSearchMessage(`Auth Error: ${response.statusText} (${response.status})\nCheck your API Key in Settings.`, true);
                     } else {
-                        searchResults.innerHTML = `<div style="color: #ef4444; text-align: center; margin-top: 40px; font-size: 14px;">Error: ${response.statusText} (${response.status})</div>`;
+                        showSearchMessage(`Error: ${response.statusText} (${response.status})`, true);
                     }
                     return;
                 }
 
                 const data = await response.json();
+                if (searchRequest !== request) return;
                 renderSearchResults(data);
             } catch (err) {
+                if (searchRequest !== request || err?.name === 'AbortError') return;
                 console.error("Search failed:", err);
-                searchResults.innerHTML = '<div style="color: #ef4444; text-align: center; margin-top: 40px; font-size: 14px;">Failed to fetch results</div>';
+                showSearchMessage('Failed to fetch results', true);
+            } finally {
+                if (searchRequest === request) searchRequest = null;
             }
         }
 
@@ -8224,6 +8384,11 @@
         }
 
         async function refreshActivePlaylistState() {
+            if (IS_DEMO) {
+                const hasTracks = (runtimeConfig.demo.tracks || []).length > 0;
+                setActivePlaylistHasTracks(hasTracks);
+                return hasTracks;
+            }
             if (IS_SINGLE_FILE_BUILD_SOURCE) {
                 return null;
             }
@@ -8723,6 +8888,11 @@
         let activePermissions = ["*"];
 
         async function checkAuthPermissions() {
+            if (IS_DEMO) {
+                activePermissions = [];
+                applyAuthPermissions();
+                return;
+            }
             try {
                 let url = '/api/privs';
                 if (apiKeyEnabled && apiKey) {

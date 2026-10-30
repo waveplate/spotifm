@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Spotifm API
   description: personal web radio server powered by Spotify.
-  version: 3.0.7-alpha
+  version: 3.2.0-beta
 servers:
   - url: https://localhost:3443
     description: Local Spotifm HTTPS server
@@ -17,7 +17,7 @@ paths:
   /search/{category}/{limit}:
     get:
       summary: Search Spotify
-      description: Search tracks, albums, artists, or playlists by query.
+      description: Search tracks, albums, artists, or playlists by query, with automatic anonymous web-player fallback when the Web API fails.
       parameters:
         - name: category
           in: path
@@ -40,6 +40,12 @@ paths:
       responses:
         '200':
           description: Search results
+          headers:
+            X-Spotify-Source:
+              description: Spotify catalogue provider used for this response
+              schema:
+                type: string
+                enum: [spotify_web_api, spotify_anonymous]
           content:
             application/json:
               schema:
@@ -52,6 +58,18 @@ paths:
                     - $ref: '#/components/schemas/SimplePlaylist'
         '400':
           description: Invalid category or limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit returned by Spotify
+          headers:
+            Retry-After:
+              description: Seconds to wait before making another request to the rate-limited Spotify provider
+              schema:
+                type: integer
+                minimum: 1
           content:
             application/json:
               schema:
@@ -1025,6 +1043,15 @@ components:
       properties:
         error:
           type: string
+        source:
+          type: string
+          enum: [spotify, spotify_anonymous]
+          description: Present for upstream Spotify failures
+        retry_after_seconds:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Spotify retry interval when supplied
 
     ExtendedTrack:
       type: object
@@ -1131,13 +1158,17 @@ components:
 
     LyricsData:
       type: object
-      required: [type, track_id, lines]
+      required: [type, track_id, source, lines]
       properties:
         type:
           type: string
           enum: [Lyrics]
         track_id:
           type: string
+        source:
+          type: string
+          enum: [spotify, lrclib]
+          description: Provider of the displayed timed lyrics, including cached LRCLIB results.
         background:
           type: integer
         text_color:

@@ -122,6 +122,45 @@ Notes:
 - `limit` must be between `1` and `50`.
 - Unknown categories return `400`.
 - The response is an array whose item shape depends on the category.
+- `X-Spotify-Source` identifies `spotify_web_api` or `spotify_anonymous`.
+
+Search automatically falls back to anonymous web-player search after Web API
+rate limits, authorization failures, temporary network/server failures, or an
+incompatible response. Subsequent catalogue requests use the backup during the
+Web API's `Retry-After` interval plus one second, or for 60 seconds after other
+qualifying failures. The next request after that interval tries the Web API
+again. Metadata needed to play or queue results can use the existing playback
+session. See [fallback details](anonymous-search.md).
+
+Spotify failures include `source: "spotify"` for the Web API or
+`source: "spotify_anonymous"` for the backup, so clients can distinguish upstream
+failures from Spotifm API-key failures. If anonymous search is also rate limited,
+the response includes `429`, `Retry-After`, and `retry_after_seconds` when
+Spotify supplies a wait interval. For example:
+
+```json
+{
+  "error": "Spotify anonymous search returned 429 Too Many Requests",
+  "source": "spotify_anonymous",
+  "retry_after_seconds": 18
+}
+```
+
+Catalogue requests try the backup immediately after a qualifying failure.
+Rate limits do not trigger token refresh or repeated anonymous requests.
+Unavailable popularity and preview URLs are represented as `null` in anonymous
+results. The JSON array and category-specific item shapes are unchanged.
+
+Each outgoing Web API GET logs `request_number` (the count since this client
+was created), `local_gets_30s` (GETs started during the preceding 30 seconds,
+including this request), and the configured client ID. Search type and limit
+are logged; query text and tokens are excluded. These counters measure this
+Spotifm process's GETs, which helps investigate traffic before the first `429`.
+
+The web player shows the wait interval, suppresses duplicate pending searches,
+and ignores responses from searches that have been replaced by a newer query.
+The wait message does not prevent a subsequent manual search. Using the bundled
+ncspot app ID also means using that application's quota.
 
 Live example from `GET /search/track/2?q=daft%20punk`:
 
@@ -467,6 +506,23 @@ it is loaded on startup.
 
 This is the REST lyrics-state endpoint. It is not the WebSocket endpoint.
 
+Spotify supplies synced lyrics first. When they are missing, unsynced, empty,
+or unavailable, spotifm looks up timestamped lyrics on LRCLIB using the track's
+title, artist, album, and duration. This fallback needs no API key. Both sources
+use the same `Lyrics` payload and millisecond timestamps on REST and WebSocket
+endpoints. If neither source has usable timed lyrics, the state is `NoLyrics`.
+
+Each `Lyrics` payload includes `source`, either `"spotify"` or `"lrclib"`.
+This field is the same on REST and WebSocket messages, including lyrics read
+from the LRCLIB cache. `NoLyrics` and `Idle` have no source field.
+
+Successful timed LRCLIB results are saved in
+`$XDG_CACHE_HOME/spotifm/lyrics/lrclib` (normally
+`~/.cache/spotifm/lyrics/lrclib`). They survive restarts and are reused when the
+track's metadata still matches. Spotify is checked first on every lookup.
+Missing, unsynced, or failed LRCLIB responses are not cached. Remove a track's
+`<Spotify track ID>.json` file to fetch its LRCLIB lyrics again.
+
 It returns the cached lyrics state for the current track, which is one of:
 
 - `Lyrics`
@@ -485,6 +541,7 @@ Example `Lyrics` payload:
 {
   "type": "Lyrics",
   "track_id": "3n3Ppam7vgaVa1iaRUc9Lp",
+  "source": "spotify",
   "background": 123456,
   "text_color": 16777215,
   "highlight_color": 65280,

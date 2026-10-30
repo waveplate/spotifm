@@ -1,7 +1,9 @@
 target
 dist/
+output/
 player/vendor/butterchurn.js
 player/vendor/butterchurn-presets.js
+player/.demo-lyrics-cache/
 
 # Local editor and assistant state
 .antigravitycli/
@@ -14,6 +16,16 @@ playlists/
 # Python runtime artifacts
 **/__pycache__/
 *.py[cod]
+
+# Local credentials, certificates, and environment overrides
+.env
+.env.*
+!.env.example
+credentials.json
+rspotify_token.json
+oauth_authorize_url.txt
+cert.pem
+key.pem
 
 # discordbot config
 discordbot.json

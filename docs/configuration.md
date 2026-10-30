@@ -9,12 +9,39 @@ you can create an application in the spotify developer dashboard to use a public
 1. go to the [spotify developer dashboard](https://developer.spotify.com/dashboard)
 2. create a new application
 3. add an exact redirect URI such as `https://radio.example:3443/login`
-4. enable the **Web Playback SDK** and **Web API**
+4. enable the **Web API**
 5. copy the client ID
 
 ```sh
 ./target/release/spotifm --redirect-uri https://radio.example:3443/login --client-id a1b2c3d4e5f6
 ```
+
+### Playback and Web API client IDs
+
+Spotifm follows [ncspot's separate authentication flows](https://github.com/hrkfdn/ncspot/blob/47c12502908a952f03e7c9f8224eb28d10c0ca07/src/authentication.rs):
+
+- Playback uses librespot's default client ID, `65b708073fc0480ea92a077233ca87bd`
+  on desktop, and reusable `credentials.json` credentials.
+- Search and metadata first use the configured Web API client ID, by default
+  `d420a117a32841c2b3474932e49fb54b`, and `rspotify_token.json`.
+
+`--client-id` changes the Web API app. Its refresh token must have been issued
+for that app. If catalogue requests fail, Spotifm can use anonymous web-player
+search and the existing playback session for metadata. See
+[anonymous search fallback](anonymous-search.md) for behavior and diagnostics.
+
+When Spotifm's Web API cache is absent, automatic import may copy ncspot's
+`rspotify_token.json`. A token without known required scopes is rejected and
+requires a fresh Web API authorization. Startup logs identify a cached token,
+a refreshed cached token, or a newly authorized token. `--skip-import` disables
+automatic credential import.
+
+Spotify documents [rate limits per application](https://developer.spotify.com/documentation/web-api/concepts/rate-limits).
+Borrowing ncspot's Web API ID means sharing that app's quota. Catalogue requests
+automatically try the backup after `429` and use it during the supplied
+`Retry-After` interval. If anonymous search also returns `429`, that error and
+wait interval are returned to the caller. Changing access tokens is not a
+documented way to reset an application-wide rate limit.
 
 ## files and precedence
 

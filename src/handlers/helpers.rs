@@ -1,3 +1,4 @@
+use crate::catalog::{CatalogError, CatalogSearch};
 use crate::models::TrackItem;
 use futures_util::stream::{self, StreamExt};
 use rspotify::clients::BaseClient;
@@ -11,15 +12,10 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 use url::form_urlencoded;
 use warp::{http::StatusCode, Reply};
 
-const SEARCH_MAX_ATTEMPTS: usize = 5;
-const SEARCH_RETRY_BASE_DELAY_MS: u64 = 250;
 const SEARCH_MIN_CANDIDATE_LIMIT: u32 = 5;
-const METADATA_MAX_ATTEMPTS: usize = 5;
-const METADATA_RETRY_BASE_DELAY_MS: u64 = 500;
 const ARTIST_ALBUM_REQUEST_CONCURRENCY: usize = 2;
 static STREAM_SESSION_COUNTER: AtomicU64 = AtomicU64::new(1);
 static SPOTIFY_METADATA_REQUESTS: tokio::sync::Semaphore =
@@ -80,18 +76,6 @@ pub fn invalid_playlist_name_response(name: &str) -> Option<warp::reply::Respons
     }
 }
 
-fn is_transient_spotify_error(err: &ClientError) -> bool {
-    match err {
-        ClientError::Http(http_err) => match http_err.as_ref() {
-            HttpError::StatusCode(response) => {
-                matches!(response.status().as_u16(), 429 | 502 | 503 | 504)
-            }
-            HttpError::Client(inner) => inner.is_connect() || inner.is_timeout(),
-        },
-        _ => false,
-    }
-}
-
 pub fn status_code_for_client_error(err: &ClientError) -> StatusCode {
     match err {
         ClientError::Http(http_err) => match http_err.as_ref() {
@@ -107,7 +91,69 @@ pub fn status_code_for_client_error(err: &ClientError) -> StatusCode {
     }
 }
 
-fn status_code_for_resolve_error(error: &str) -> StatusCode {
+pub fn spotify_client_error_response(error: &ClientError) -> warp::reply::Response {
+    let status = status_code_for_client_error(error);
+    let retry_after = crate::spotify::retry_after_seconds(error);
+    let message = match status {
+        StatusCode::TOO_MANY_REQUESTS => {
+            "Spotify is rate limiting Web API requests. Wait before trying again.".to_string()
+        }
+        StatusCode::UNAUTHORIZED => {
+            "Spotify rejected the Web API authorization after token refresh.".to_string()
+        }
+        StatusCode::FORBIDDEN => "Spotify denied this Web API request.".to_string(),
+        _ => error.to_string(),
+    };
+    let mut response = warp::reply::with_status(
+        warp::reply::json(&serde_json::json!({
+            "error": message,
+            "source": "spotify",
+            "retry_after_seconds": retry_after,
+        })),
+        status,
+    )
+    .into_response();
+    if let Some(seconds) = retry_after {
+        response.headers_mut().insert(
+            "retry-after",
+            seconds
+                .to_string()
+                .parse()
+                .expect("Integer Retry-After is a valid header"),
+        );
+    }
+    response
+}
+
+pub fn catalog_error_response(error: &CatalogError) -> warp::reply::Response {
+    match error {
+        CatalogError::WebApi(error) => spotify_client_error_response(error),
+        CatalogError::Anonymous(error) => {
+            eprintln!("[Catalogue/Anonymous] {error}");
+            let mut response = warp::reply::with_status(
+                warp::reply::json(&serde_json::json!({
+                    "error": error.message,
+                    "source": "spotify_anonymous",
+                    "retry_after_seconds": error.retry_after,
+                })),
+                if error.status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    StatusCode::TOO_MANY_REQUESTS
+                } else {
+                    StatusCode::BAD_GATEWAY
+                },
+            )
+            .into_response();
+            if let Some(seconds) = error.retry_after {
+                response
+                    .headers_mut()
+                    .insert("retry-after", seconds.to_string().parse().unwrap());
+            }
+            response
+        }
+    }
+}
+
+pub fn status_code_for_resolve_error(error: &str) -> StatusCode {
     if error.starts_with("Invalid ") {
         StatusCode::BAD_REQUEST
     } else if error.contains("429 Too Many Requests") {
@@ -144,7 +190,7 @@ pub enum SpotifyTrackResolveError {
     InvalidCategory,
     NoSearchResults,
     NoTracksResolved,
-    Search(ClientError),
+    Search(CatalogError),
     Resolve(String),
 }
 
@@ -162,10 +208,7 @@ pub fn spotify_track_resolve_error_response(
         SpotifyTrackResolveError::NoTracksResolved => {
             json_error(StatusCode::BAD_REQUEST, "No tracks resolved")
         }
-        SpotifyTrackResolveError::Search(err) => {
-            eprintln!("[API] Search error: {err}");
-            json_error(status_code_for_client_error(&err), err.to_string())
-        }
+        SpotifyTrackResolveError::Search(err) => catalog_error_response(&err),
         SpotifyTrackResolveError::Resolve(err) => {
             eprintln!("[API] Spotify metadata resolution failed: {err}");
             json_error(status_code_for_resolve_error(&err), err)
@@ -173,89 +216,49 @@ pub fn spotify_track_resolve_error_response(
     }
 }
 
-fn spotify_retry_delay(error: &ClientError, attempt: usize) -> Duration {
-    if let ClientError::Http(http_error) = error {
-        if let HttpError::StatusCode(response) = http_error.as_ref() {
-            if response.status().as_u16() == 429 {
-                if let Some(seconds) = response
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|value| value.to_str().ok())
-                    .and_then(|value| value.parse::<u64>().ok())
-                {
-                    return Duration::from_secs(seconds.max(1));
-                }
-            }
-        }
-    }
-
-    let multiplier = 1u64 << attempt.saturating_sub(1).min(4);
-    Duration::from_millis(METADATA_RETRY_BASE_DELAY_MS * multiplier)
-}
-
-async fn spotify_metadata_with_retry<T, F, Fut>(operation: &str, mut request: F) -> ClientResult<T>
+async fn spotify_metadata_request<T, F, Fut>(operation: &str, request: F) -> ClientResult<T>
 where
-    F: FnMut() -> Fut,
+    F: FnOnce() -> Fut,
     Fut: Future<Output = ClientResult<T>>,
 {
-    for attempt in 1..=METADATA_MAX_ATTEMPTS {
-        let permit = SPOTIFY_METADATA_REQUESTS
-            .acquire()
-            .await
-            .expect("Spotify metadata semaphore must remain open");
-        let result = request().await;
-        drop(permit);
-
-        match result {
-            Ok(value) => return Ok(value),
-            Err(error) if attempt < METADATA_MAX_ATTEMPTS && is_transient_spotify_error(&error) => {
-                let delay = spotify_retry_delay(&error, attempt);
-                eprintln!(
-                    "[API] Spotify metadata transient failure while trying to {operation} (attempt {attempt}/{METADATA_MAX_ATTEMPTS}, retrying in {:.1}s): {error}",
-                    delay.as_secs_f64()
-                );
-                tokio::time::sleep(delay).await;
-            }
-            Err(error) => return Err(error),
-        }
+    let _permit = SPOTIFY_METADATA_REQUESTS
+        .acquire()
+        .await
+        .expect("Spotify metadata semaphore must remain open");
+    let result = request().await;
+    if let Err(error) = &result {
+        eprintln!("[API] Spotify metadata failed while trying to {operation}: {error}");
     }
-
-    unreachable!("metadata retry loop always returns on its final attempt")
+    result
 }
 
-pub async fn spotify_search_with_retry(
-    client: &rspotify::AuthCodePkceSpotify,
+pub async fn catalog_search(
+    client: &crate::spotify::SpotifyClient,
     query: &str,
     search_type: SearchType,
     limit: u32,
-) -> ClientResult<rspotify::model::SearchResult> {
-    let mut last_err = None;
-    // Spotify can return a different first result when asked for only one or two
-    // items. Fetch a small, stable candidate window and let API handlers trim
-    // their response to the caller's requested limit.
+) -> Result<CatalogSearch, CatalogError> {
+    // Fetch a stable candidate window for small searches, then trim the result.
     let candidate_limit = spotify_search_candidate_limit(limit);
-
-    for attempt in 1..=SEARCH_MAX_ATTEMPTS {
+    if !client.prefer_catalog_fallback() {
         match client
             .search(query, search_type, None, None, Some(candidate_limit), None)
             .await
         {
-            Ok(result) => return Ok(result),
-            Err(err) if attempt < SEARCH_MAX_ATTEMPTS && is_transient_spotify_error(&err) => {
-                eprintln!(
-                    "[API] Spotify search transient failure for type '{search_type:?}' and query '{query}' (attempt {attempt}/{SEARCH_MAX_ATTEMPTS}): {err}"
-                );
-                last_err = Some(err);
-                tokio::time::sleep(Duration::from_millis(
-                    SEARCH_RETRY_BASE_DELAY_MS * attempt as u64,
-                ))
-                .await;
+            Ok(result) => return CatalogSearch::from_web(result, limit as usize),
+            Err(error) if crate::spotify::can_use_catalog_fallback(&error) => {
+                if !client.prefer_catalog_fallback() {
+                    client.note_catalog_failure(&error);
+                }
             }
-            Err(err) => return Err(err),
+            Err(error) => return Err(CatalogError::WebApi(error)),
         }
     }
-
-    Err(last_err.expect("search retry loop must capture the final transient error"))
+    client
+        .catalog
+        .search(query, search_type, limit)
+        .await
+        .map_err(CatalogError::Anonymous)
 }
 
 fn spotify_search_candidate_limit(requested_limit: u32) -> u32 {
@@ -286,35 +289,17 @@ pub fn search_type_for_category(category: &str) -> Option<SearchType> {
 }
 
 pub async fn search_first_spotify_id(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
     category: &str,
     query: &str,
-) -> ClientResult<Option<String>> {
+) -> Result<Option<String>, CatalogError> {
     let Some(search_type) = search_type_for_category(category) else {
         return Ok(None);
     };
 
-    match spotify_search_with_retry(client, query, search_type, 1).await? {
-        rspotify::model::SearchResult::Tracks(page) => Ok(page
-            .items
-            .into_iter()
-            .find_map(|track| track.id.map(|id| id.id().to_string()))),
-        rspotify::model::SearchResult::Albums(page) => Ok(page
-            .items
-            .into_iter()
-            .find_map(|album| album.id.map(|id| id.id().to_string()))),
-        rspotify::model::SearchResult::Artists(page) => Ok(page
-            .items
-            .into_iter()
-            .next()
-            .map(|artist| artist.id.id().to_string())),
-        rspotify::model::SearchResult::Playlists(page) => Ok(page
-            .items
-            .into_iter()
-            .next()
-            .map(|playlist| playlist.id.id().to_string())),
-        _ => Ok(None),
-    }
+    Ok(catalog_search(client, query, search_type, 1)
+        .await?
+        .first_id())
 }
 
 #[derive(Clone)]
@@ -378,7 +363,22 @@ pub fn full_track_to_item(track: &FullTrack, fallback_track_id: Option<&str>) ->
 }
 
 pub async fn resolve_album_tracks_by_id(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
+    album_id_str: &str,
+    album_name: Option<String>,
+    cover_url: Option<String>,
+) -> Result<Vec<TrackItem>, String> {
+    catalog_metadata_with_fallback(
+        client,
+        "album",
+        album_id_str,
+        resolve_album_tracks_by_id_web(client, album_id_str, album_name, cover_url),
+    )
+    .await
+}
+
+async fn resolve_album_tracks_by_id_web(
+    client: &crate::spotify::SpotifyClient,
     album_id_str: &str,
     album_name: Option<String>,
     cover_url: Option<String>,
@@ -393,11 +393,16 @@ pub async fn resolve_album_tracks_by_id(
 
     loop {
         let operation = format!("fetch album '{album_id_str}' tracks at offset {offset}");
-        let page = spotify_metadata_with_retry(&operation, || {
+        let page = spotify_metadata_request(&operation, || {
             client.album_track_manual(album_id.clone(), market, Some(50), Some(offset))
         })
         .await
-        .map_err(|e| format!("Failed to fetch album tracks for '{}': {}", album_id_str, e))?;
+        .map_err(|e| {
+            if !client.prefer_catalog_fallback() {
+                client.note_catalog_failure(&e);
+            }
+            format!("Failed to fetch album tracks for '{}': {}", album_id_str, e)
+        })?;
 
         let has_next = page.next.is_some();
         let page_len = page.items.len() as u32;
@@ -435,7 +440,20 @@ pub async fn resolve_album_tracks_by_id(
 }
 
 pub async fn resolve_playlist_tracks_by_id(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
+    playlist_id_str: &str,
+) -> Result<Vec<TrackItem>, String> {
+    catalog_metadata_with_fallback(
+        client,
+        "playlist",
+        playlist_id_str,
+        resolve_playlist_tracks_by_id_web(client, playlist_id_str),
+    )
+    .await
+}
+
+async fn resolve_playlist_tracks_by_id_web(
+    client: &crate::spotify::SpotifyClient,
     playlist_id_str: &str,
 ) -> Result<Vec<TrackItem>, String> {
     let market = Some(Market::FromToken);
@@ -448,7 +466,12 @@ pub async fn resolve_playlist_tracks_by_id(
     let full_playlist = client
         .playlist(playlist_id.clone(), None, market)
         .await
-        .map_err(|e| format!("Failed to fetch playlist '{}': {}", playlist_id_str, e))?;
+        .map_err(|e| {
+            if !client.prefer_catalog_fallback() {
+                client.note_catalog_failure(&e);
+            }
+            format!("Failed to fetch playlist '{}': {}", playlist_id_str, e)
+        })?;
     let source_playlist_id = playlist_id_str.to_string();
     let source_playlist_name = full_playlist.name.clone();
     let process_items = |items: Vec<rspotify::model::PlaylistItem>,
@@ -498,6 +521,9 @@ pub async fn resolve_playlist_tracks_by_id(
             )
             .await
             .map_err(|e| {
+                if !client.prefer_catalog_fallback() {
+                    client.note_catalog_failure(&e);
+                }
                 format!(
                     "Failed to fetch playlist items for '{}': {}",
                     playlist_id_str, e
@@ -530,7 +556,7 @@ pub async fn resolve_playlist_tracks_by_id(
 }
 
 pub async fn resolve_artist_tracks_by_id(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
     artist_id_str: &str,
 ) -> Result<Vec<TrackItem>, String> {
     let market = Some(Market::FromToken);
@@ -544,7 +570,7 @@ pub async fn resolve_artist_tracks_by_id(
 
     loop {
         let operation = format!("fetch artist '{artist_id_str}' albums at offset {album_offset}");
-        let page = spotify_metadata_with_retry(&operation, || {
+        let page = spotify_metadata_request(&operation, || {
             client.artist_albums_manual(
                 artist_id.clone(),
                 include_groups,
@@ -555,6 +581,9 @@ pub async fn resolve_artist_tracks_by_id(
         })
         .await
         .map_err(|e| {
+            if !client.prefer_catalog_fallback() {
+                client.note_catalog_failure(&e);
+            }
             format!(
                 "Failed to fetch artist albums for '{}': {}",
                 artist_id_str, e
@@ -643,7 +672,28 @@ pub async fn resolve_artist_tracks_by_id(
 }
 
 pub async fn resolve_spotify_tracks(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
+    tracks: &[String],
+    albums: &[String],
+    artists: &[String],
+    playlists: &[String],
+) -> Result<Vec<TrackItem>, String> {
+    let mut resolved = Vec::new();
+    for (category, ids) in [
+        ("track", tracks),
+        ("album", albums),
+        ("artist", artists),
+        ("playlist", playlists),
+    ] {
+        for id in ids {
+            resolved.extend(resolve_spotify_tracks_for_category(client, category, id).await?);
+        }
+    }
+    Ok(resolved)
+}
+
+async fn resolve_spotify_tracks_web(
+    client: &crate::spotify::SpotifyClient,
     tracks: &[String],
     albums: &[String],
     artists: &[String],
@@ -658,7 +708,12 @@ pub async fn resolve_spotify_tracks(
         let full = client
             .track(rid, Some(Market::FromToken))
             .await
-            .map_err(|e| format!("Failed to fetch track '{}': {}", t_id, e))?;
+            .map_err(|e| {
+                if !client.prefer_catalog_fallback() {
+                    client.note_catalog_failure(&e);
+                }
+                format!("Failed to fetch track '{}': {}", t_id, e)
+            })?;
         if let Some(item) = full_track_to_item(&full, Some(t_id)) {
             resolved.push(item);
         }
@@ -671,7 +726,12 @@ pub async fn resolve_spotify_tracks(
         let album = client
             .album(aid, Some(Market::FromToken))
             .await
-            .map_err(|e| format!("Failed to fetch album '{}': {}", a_id, e))?;
+            .map_err(|e| {
+                if !client.prefer_catalog_fallback() {
+                    client.note_catalog_failure(&e);
+                }
+                format!("Failed to fetch album '{}': {}", a_id, e)
+            })?;
         let album_tracks = resolve_album_tracks_by_id(
             client,
             a_id,
@@ -708,7 +768,61 @@ pub async fn resolve_spotify_tracks(
 }
 
 pub async fn resolve_spotify_tracks_for_category(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
+    category: &str,
+    id: &str,
+) -> Result<Vec<TrackItem>, String> {
+    catalog_metadata_with_fallback(
+        client,
+        category,
+        id,
+        resolve_spotify_tracks_for_category_web(client, category, id),
+    )
+    .await
+}
+
+async fn catalog_metadata_with_fallback(
+    client: &crate::spotify::SpotifyClient,
+    category: &str,
+    id: &str,
+    request: impl Future<Output = Result<Vec<TrackItem>, String>>,
+) -> Result<Vec<TrackItem>, String> {
+    if search_type_for_category(category).is_none() {
+        return Err("Invalid category".to_owned());
+    }
+    // Validate before choosing a backend, including while the Web API is unavailable.
+    if id.len() != 22 || !id.bytes().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(format!("Invalid {category} id '{id}'"));
+    }
+    if client.prefer_catalog_fallback() {
+        return client.catalog.resolve(category, id).await;
+    }
+    let failures_before = client.catalog_failure_count();
+    match request.await {
+        // Other metadata requests can still be finishing when a short wait
+        // interval expires. Recover this failure even if the routing timer
+        // elapsed while the request was in progress.
+        Err(primary)
+            if client.prefer_catalog_fallback()
+                || client.catalog_failure_count() != failures_before =>
+        {
+            eprintln!(
+                "[Catalogue] Retrying {category} metadata through the playback session: {primary}"
+            );
+            client
+                .catalog
+                .resolve(category, id)
+                .await
+                .map_err(|backup| {
+                    format!("Web API failed: {primary}; metadata backup failed: {backup}")
+                })
+        }
+        result => result,
+    }
+}
+
+async fn resolve_spotify_tracks_for_category_web(
+    client: &crate::spotify::SpotifyClient,
     category: &str,
     id: &str,
 ) -> Result<Vec<TrackItem>, String> {
@@ -725,7 +839,7 @@ pub async fn resolve_spotify_tracks_for_category(
         _ => return Err("Invalid category".to_string()),
     }
 
-    resolve_spotify_tracks(
+    resolve_spotify_tracks_web(
         client,
         &tracks_list,
         &albums_list,
@@ -736,7 +850,7 @@ pub async fn resolve_spotify_tracks_for_category(
 }
 
 pub async fn resolve_spotify_track_target(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
     target: SpotifyTrackTarget<'_>,
 ) -> Result<Vec<TrackItem>, SpotifyTrackResolveError> {
     match target {
@@ -776,7 +890,7 @@ pub async fn resolve_spotify_track_target(
 }
 
 pub async fn resolve_nonempty_spotify_track_target(
-    client: &rspotify::AuthCodePkceSpotify,
+    client: &crate::spotify::SpotifyClient,
     target: SpotifyTrackTarget<'_>,
 ) -> Result<Vec<TrackItem>, SpotifyTrackResolveError> {
     let tracks = resolve_spotify_track_target(client, target).await?;

@@ -1,15 +1,13 @@
 use super::helpers::{
-    is_valid_playlist_name, json_error, parse_raw_query, resolve_spotify_track_target,
-    spotify_track_resolve_error_response, SpotifyTrackTarget,
+    is_valid_playlist_name, json_error, parse_raw_query, resolve_playlist_tracks_by_id,
+    resolve_spotify_track_target, spotify_track_resolve_error_response,
+    status_code_for_resolve_error, SpotifyTrackTarget,
 };
 use crate::audio::playback::{get_playlist_path, list_playlist_names};
 use crate::models::{
     Command, PlaylistAddResult, PlaylistInfo, PlaylistSortQuery, PlaylistTracksBody, TrackItem,
 };
 use crate::state::AppState;
-use futures_util::StreamExt;
-use rspotify::clients::BaseClient;
-use rspotify::prelude::Id;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::convert::Infallible;
@@ -254,29 +252,14 @@ pub async fn handle_playlist_delete_where(
     let mut playlist_tracks = Vec::new();
     let client = state.spotify.clone();
     for p_id in playlists {
-        let pid = match rspotify::model::PlaylistId::from_id(&p_id) {
-            Ok(p) => p,
-            Err(e) => {
-                #[derive(Serialize)]
-                struct ErrResponse {
-                    error: String,
-                }
+        match resolve_playlist_tracks_by_id(&client, &p_id).await {
+            Ok(tracks) => playlist_tracks.extend(tracks.into_iter().map(|track| track.track_id)),
+            Err(error) => {
+                let status = status_code_for_resolve_error(&error);
                 return Ok(warp::reply::with_status(
-                    warp::reply::json(&ErrResponse {
-                        error: format!("Invalid playlist ID '{}': {}", p_id, e),
-                    }),
-                    StatusCode::BAD_REQUEST,
+                    warp::reply::json(&serde_json::json!({ "error": error })),
+                    status,
                 ));
-            }
-        };
-        let mut stream = client.playlist_items(pid, None, None);
-        while let Some(item_res) = stream.next().await {
-            if let Ok(pi) = item_res {
-                if let Some(rspotify::model::PlayableItem::Track(track)) = pi.track {
-                    if let Some(id) = track.id {
-                        playlist_tracks.push(id.id().to_string());
-                    }
-                }
             }
         }
     }
@@ -342,29 +325,14 @@ pub async fn handle_playlist_delete_where_json(
     let mut playlist_tracks = Vec::new();
     let client = state.spotify.clone();
     for p_id in body.playlists {
-        let pid = match rspotify::model::PlaylistId::from_id(&p_id) {
-            Ok(p) => p,
-            Err(e) => {
-                #[derive(Serialize)]
-                struct ErrResponse {
-                    error: String,
-                }
+        match resolve_playlist_tracks_by_id(&client, &p_id).await {
+            Ok(tracks) => playlist_tracks.extend(tracks.into_iter().map(|track| track.track_id)),
+            Err(error) => {
+                let status = status_code_for_resolve_error(&error);
                 return Ok(warp::reply::with_status(
-                    warp::reply::json(&ErrResponse {
-                        error: format!("Invalid playlist ID '{}': {}", p_id, e),
-                    }),
-                    StatusCode::BAD_REQUEST,
+                    warp::reply::json(&serde_json::json!({ "error": error })),
+                    status,
                 ));
-            }
-        };
-        let mut stream = client.playlist_items(pid, None, None);
-        while let Some(item_res) = stream.next().await {
-            if let Ok(pi) = item_res {
-                if let Some(rspotify::model::PlayableItem::Track(track)) = pi.track {
-                    if let Some(id) = track.id {
-                        playlist_tracks.push(id.id().to_string());
-                    }
-                }
             }
         }
     }

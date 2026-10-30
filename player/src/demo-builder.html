@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spotifm | Demo Song Builder</title>
+    <link rel="stylesheet" href="./css/demo-builder.css">
+</head>
+<body>
+    <header>
+        <div><span class="eyebrow">SPOTIFM</span><h1>Demo song builder</h1>
+            <p>Choose preview recordings, match their lyrics, and export your demo selection.</p></div>
+        <div class="actions">
+            <button id="import-json" type="button">Import JSON</button>
+            <input id="import-file" type="file" accept="application/json,.json" hidden>
+            <button id="export-json" class="primary" type="button">Export JSON</button>
+            <button id="export-lyrics" type="button">Export lyric bundle</button>
+        </div>
+    </header>
+    <p id="builder-status" class="notice" role="status" aria-live="polite">Your draft is saved in this browser.</p>
+    <main>
+        <aside class="card">
+            <h2>Demo selection <span id="song-count" class="muted"></span></h2>
+            <ol id="song-list"></ol>
+            <button id="reset-draft" class="subtle" type="button">Reset to bundled songs</button>
+            <details class="export-preview"><summary>JSON preview</summary><textarea id="json-preview" readonly aria-label="Exported demo JSON"></textarea></details>
+        </aside>
+        <div class="workspace">
+            <section class="card">
+                <h2>Add a song</h2>
+                <form id="catalog-search" class="search-row">
+                    <label class="sr-only" for="catalog-query">Song or artist to search</label>
+                    <input id="catalog-query" type="search" placeholder="Search any song or artist…" required>
+                    <button id="catalog-submit" type="submit">Search Apple previews</button>
+                </form>
+                <p id="catalog-status" class="muted" role="status"></p>
+                <div id="catalog-results" class="results"></div>
+                <details>
+                    <summary>Add by metadata or preview URL</summary>
+                    <form id="manual-add" class="field-grid">
+                        <label>Title<input name="title" required></label>
+                        <label>Artist<input name="artist" required></label>
+                        <label>Apple song ID<input name="appleSongId" type="number" min="1" step="1"></label>
+                        <label>HTTPS preview URL<input name="previewUrl" type="url" placeholder="https://…"></label>
+                        <p class="muted wide">Supply a song ID or a public audio URL. With neither, the builder searches for a matching Apple recording.</p>
+                        <button type="submit">Add song</button>
+                    </form>
+                </details>
+            </section>
+            <section id="song-editor" class="card" hidden>
+                <div class="section-heading"><h2 id="selected-title">Selected song</h2><div class="actions">
+                    <button id="move-up" type="button" aria-label="Move selected song up">↑</button>
+                    <button id="move-down" type="button" aria-label="Move selected song down">↓</button>
+                    <button id="remove-song" type="button">Remove</button>
+                </div></div>
+                <audio id="preview-audio" controls crossorigin="anonymous" loop preload="metadata"></audio>
+                <p id="preview-status" class="muted" role="status">Loading preview…</p>
+                <div class="offset-row">
+                    <label>Clip start / lyric offset<input id="edit-previewStartMs" type="number" step="0.001" placeholder="Not set"> seconds</label>
+                    <span id="song-clock" class="muted">Song time 0:00</span>
+                </div>
+                <p class="muted">Song time = preview time + offset. Negative values delay the lyrics. While listening, click a lyric line to align it with the current audio time.</p>
+                <div class="section-heading"><h3>Timed lyrics <span id="lyrics-provider" class="badge" hidden>LRCLIB</span></h3>
+                    <button id="search-lyrics" type="button">Find other lyric records</button></div>
+                <label class="record-label">Lyric record<select id="lyric-record" disabled><option>No record loaded</option></select></label>
+                <p id="lyrics-status" class="muted" role="status">Loading lyrics…</p>
+                <div id="lyric-lines" class="lyric-lines" aria-label="Timestamped lyrics"></div>
+                <details>
+                    <summary>Recording metadata and provider IDs</summary>
+                    <div class="field-grid">
+                        <label>Title<input id="edit-title" required></label>
+                        <label>Primary artist<input id="edit-artist" required></label>
+                        <label>Album<input id="edit-album"></label>
+                        <label>Full duration (seconds)<input id="edit-durationSec" type="number" min="0.001" step="0.001"></label>
+                        <label>Apple song ID<input id="edit-appleSongId" type="number" min="1" step="1"></label>
+                        <label>Spotify track ID<input id="edit-spotifyId"></label>
+                        <label class="wide">Direct HTTPS preview URL<input id="edit-previewUrl" type="url"></label>
+                        <label>Performers (one per line)<textarea id="edit-artists" rows="3"></textarea></label>
+                        <label>Accepted lyric titles (one per line)<textarea id="edit-lyricsTitles" rows="3"></textarea></label>
+                        <label>Pinned LRCLIB record ID<input id="edit-lrclibId" type="number" min="1" step="1"></label>
+                        <label class="check"><input id="edit-appleSearch" type="checkbox"> Search Apple when no song ID is set</label>
+                    </div>
+                    <button id="reload-song" type="button">Reload preview and lyrics</button>
+                </details>
+            </section>
+            <section id="empty-selection" class="card" hidden><h2>Your demo is empty</h2><p>Add a song above to start.</p></section>
+        </div>
+    </main>
+    <footer>Export the JSON, then use it to build the public demo. Only the exported selection appears in that page.</footer>
+    <script id="demo-builder-seed" type="application/json">__DEMO_TRACKS_JSON__</script>
+    <script src="./js/demo-media.js"></script>
+    <script src="./js/demo-catalog.js"></script>
+    <script src="./js/demo-builder.js"></script>
+</body>
+</html>

@@ -55,6 +55,20 @@
             overflow: hidden;
         }
 
+        .lyrics-source-badge {
+            position: fixed;
+            top: max(20px, env(safe-area-inset-top));
+            left: max(20px, env(safe-area-inset-left));
+            z-index: 28;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, .15);
+            border-radius: 20px;
+            background: rgba(22, 18, 36, .65);
+            backdrop-filter: blur(8px);
+            color: #cdb4ef;
+            font: 11px/1.5 Inter, sans-serif;
+        }
+
         body.layout-bottom-dock {
             align-items: stretch;
         }

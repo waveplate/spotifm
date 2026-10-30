@@ -1,6 +1,6 @@
 services:
   spotifm:
-    image: waveplate/spotifm:latest
+    image: ${SPOTIFM_IMAGE:-waveplate/spotifm:latest}
     container_name: spotifm
     restart: unless-stopped
     ports:
@@ -16,7 +16,7 @@ services:
       - ${HOME}/.local/share/spotifm:/root/.local/share/spotifm
 
   spotifm-ephemeral:
-    image: waveplate/spotifm:latest
+    image: ${SPOTIFM_IMAGE:-waveplate/spotifm:latest}
     container_name: spotifm-ephemeral
     restart: unless-stopped
     ports:
