@@ -1,26 +1,35 @@
 # spotifm (3.2.0-beta)
 
+
 ![spotifm](assets/spotifm.avif)
 
+
+
 ***spotifm*** is a personal web radio streamer powered by your spotify library
+
+### tldr? check out the demo
+
+<a href="http://waveplate.github.io/spotifm/demo">
+  <img src="https://img.shields.io/badge/demo-try_the_spotifm_web_player-green?style=for-the-badge" height="40" alt="Live Demo">
+</a>
+
+
 
 > [!NOTE]
 > a spotify premium subscription is required to use ***spotifm***
 
-## changes/new features
-
-This beta adds automatic search and catalogue fallback, a standalone player
-demo for static hosting, and LRCLIB synced lyrics. See the
-[release notes](docs/releases/3.2.0-beta.md) for details and beta installation.
+## features
 
 * **standalone web radio**
    - no longer requiring co-deployment with icecast and ices
 * **flexible audio pipeline**
    - user-definable gstreamer pipelines for encoding, muxing, audio processing, buffering, and output behaviour
+* **timed lyrics**
+   - retrieves timed lyrics from spotify when possible, with LRCLIB as fallback
 * **rest and websocket apis**
    - playback control, search, playlist management, lyrics, telemetry, authorization & scopes
 * **cool web player**
-   - aesthetically pleasing web player with milkdrop visualizer + realistic ntsc/vhs webgl shaders, live telemetry, song search and playback control. highly configurable
+   - aesthetically pleasing web player with milkdrop visualizer + realistic NTSC & VHS webgl shaders, live telemetry, song search and playback control. highly configurable
 * **reference player**
    - [`minimal reference implementation`](player/minimal.html) of simultaneous playback and WASM-based ogg granule extraction for synchronized lyrics
 * **bots**
@@ -34,9 +43,7 @@ demo for static hosting, and LRCLIB synced lyrics. See the
 
 > [!NOTE]
 > ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.2.0-beta/install.sh | bash -s -- --version 3.2.0-beta`***
-> 
 
-will work on all x64 linux systems, probably the way to go if you're not using docker
 
 this will install:
 
@@ -45,7 +52,7 @@ this will install:
 
 once installed, start with
 
->`spotifm`
+`spotifm`
 
 #### other options
 
@@ -105,8 +112,6 @@ this endpoint will automatically redirect you to spotify's oauth authorization p
 
 - if running locally, http://127.0.0.1:3333
 - if running on a remote server, https://server.ip.or.domain:3443
-- standalone preview demo: [try it online](https://waveplate.github.io/spotifm/demo/) ([setup and sample timing](player/DEMO.md))
-- curate and export demo songs: [player/demo-builder.html](player/demo-builder.html)
 
 #### using the /listen endpoint
 
