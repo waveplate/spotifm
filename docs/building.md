@@ -9,50 +9,50 @@
    source "$HOME/.cargo/env"
    ```
 
-2. install openssl, pkg-config, and gstreamer development libraries:
+2. install pkg-config and gstreamer development libraries:
 
    <details>
    <summary>package commands</summary>
 
    **debian / ubuntu / linux mint**
 
-   > sudo apt install openssl pkg-config libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+   > sudo apt install pkg-config libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
    **fedora**
 
-   > sudo dnf install openssl pkgconf-pkg-config gstreamer1-devel gstreamer1-plugins-base-devel
+   > sudo dnf install pkgconf-pkg-config gstreamer1-devel gstreamer1-plugins-base-devel
 
    **rhel / centos stream / rocky linux / almalinux**
 
-   > sudo dnf install openssl pkgconf-pkg-config gstreamer1-devel gstreamer1-plugins-base-devel
+   > sudo dnf install pkgconf-pkg-config gstreamer1-devel gstreamer1-plugins-base-devel
 
    **arch linux / manjaro / endeavouros**
 
-   > sudo pacman -S openssl pkgconf gstreamer gst-plugins-base-libs
+   > sudo pacman -S pkgconf gstreamer gst-plugins-base-libs
 
    **alpine linux**
 
-   > sudo apk add openssl pkgconf gstreamer-dev gst-plugins-base-dev
+   > sudo apk add pkgconf gstreamer-dev gst-plugins-base-dev
 
    **opensuse**
 
-   > sudo zypper install openssl pkg-config gstreamer-devel gstreamer-plugins-base-devel
+   > sudo zypper install pkg-config gstreamer-devel gstreamer-plugins-base-devel
 
    **gentoo**
 
-   > sudo emerge --ask dev-libs/openssl virtual/pkgconfig media-libs/gstreamer media-libs/gst-plugins-base
+   > sudo emerge --ask virtual/pkgconfig media-libs/gstreamer media-libs/gst-plugins-base
 
    **void linux**
 
-   > sudo xbps-install openssl pkg-config gstreamer1-devel gst-plugins-base1-devel
+   > sudo xbps-install pkg-config gstreamer1-devel gst-plugins-base1-devel
 
    **macos / homebrew**
 
-   > brew install openssl pkg-config gstreamer
+   > brew install pkg-config gstreamer
 
    **linuxbrew**
 
-   > brew install openssl pkg-config gstreamer
+   > brew install pkg-config gstreamer
 
    </details>
 

@@ -1,7 +1,13 @@
+use rcgen::{
+    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa, KeyPair,
+    KeyUsagePurpose,
+};
 use std::error::Error;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use time::{Duration, OffsetDateTime};
 
 #[derive(Clone, Debug)]
 pub struct TlsFiles {
@@ -82,82 +88,71 @@ fn generate_self_signed_cert(
         .ok_or("Automatic TLS certificate path has no parent directory")?;
     std::fs::create_dir_all(parent)?;
 
-    let suffix = std::process::id().to_string();
+    let suffix = format!("{}-{:016x}", std::process::id(), rand::random::<u64>());
     let cert_tmp = parent.join(format!(".cert.pem.{suffix}.tmp"));
     let key_tmp = parent.join(format!(".key.pem.{suffix}.tmp"));
 
     let mut subject_alt_names = vec![
-        "DNS:localhost".to_string(),
-        "IP:127.0.0.1".to_string(),
-        "IP:::1".to_string(),
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string(),
     ];
     if let Ok(ip) = api_ip.parse::<IpAddr>() {
         if !ip.is_unspecified() && !ip.is_loopback() {
-            subject_alt_names.push(format!("IP:{ip}"));
+            subject_alt_names.push(ip.to_string());
         }
     }
-    let subject_alt_name = format!("subjectAltName={}", subject_alt_names.join(","));
-
     println!(
         "[TLS] Generating persistent self-signed certificate at {}",
         cert_path.display()
     );
-    let output = Command::new("openssl")
-        .args(["req", "-x509", "-newkey", "rsa:2048"])
-        .arg("-keyout")
-        .arg(&key_tmp)
-        .arg("-out")
-        .arg(&cert_tmp)
-        .args([
-            "-sha256",
-            "-days",
-            "3650",
-            "-nodes",
-            "-subj",
-            "/CN=localhost",
-            "-addext",
-            "basicConstraints=critical,CA:FALSE",
-            "-addext",
-            "keyUsage=critical,digitalSignature,keyEncipherment",
-            "-addext",
-            "extendedKeyUsage=serverAuth",
-            "-addext",
-        ])
-        .arg(subject_alt_name)
-        .output();
+    let now = OffsetDateTime::now_utc();
+    let mut params = CertificateParams::new(subject_alt_names)?;
+    params.not_before = now - Duration::minutes(5);
+    params.not_after = now + Duration::days(3650);
+    params.distinguished_name = DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(DnType::CommonName, "localhost");
+    params.is_ca = IsCa::ExplicitNoCa;
+    params.key_usages = vec![KeyUsagePurpose::DigitalSignature];
+    params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
+    let key = KeyPair::generate()?;
+    let certificate = params.self_signed(&key)?;
 
-    let output = match output {
-        Ok(output) => output,
-        Err(error) => {
-            let _ = std::fs::remove_file(&cert_tmp);
-            let _ = std::fs::remove_file(&key_tmp);
-            return Err(format!(
-                "Failed to run openssl while generating the HTTPS certificate: {error}"
-            )
-            .into());
-        }
-    };
-
-    if !output.status.success() {
-        let _ = std::fs::remove_file(&cert_tmp);
-        let _ = std::fs::remove_file(&key_tmp);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "openssl failed to generate the HTTPS certificate: {}",
-            stderr.trim()
-        )
-        .into());
-    }
+    let mut key_options = OpenOptions::new();
+    key_options.write(true).create_new(true);
+    let mut cert_options = OpenOptions::new();
+    cert_options.write(true).create_new(true);
 
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&key_tmp, std::fs::Permissions::from_mode(0o600))?;
-        std::fs::set_permissions(&cert_tmp, std::fs::Permissions::from_mode(0o644))?;
+        use std::os::unix::fs::OpenOptionsExt;
+        // Restrict the private key from its first write, regardless of umask.
+        key_options.mode(0o600);
+        cert_options.mode(0o644);
     }
 
-    std::fs::rename(&key_tmp, key_path)?;
-    std::fs::rename(&cert_tmp, cert_path)?;
+    let result = (|| -> std::io::Result<()> {
+        key_options
+            .open(&key_tmp)?
+            .write_all(key.serialize_pem().as_bytes())?;
+        cert_options
+            .open(&cert_tmp)?
+            .write_all(certificate.pem().as_bytes())?;
+        std::fs::rename(&cert_tmp, cert_path)?;
+        std::fs::rename(&key_tmp, key_path)?;
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let _ = std::fs::remove_file(&cert_tmp);
+        let _ = std::fs::remove_file(&key_tmp);
+        return Err(format!(
+            "Failed to save the HTTPS certificate and key in {}: {error}",
+            parent.display()
+        )
+        .into());
+    }
     println!("[TLS] Self-signed certificate generated successfully.");
     Ok(())
 }
@@ -234,6 +229,10 @@ mod tests {
 
     #[test]
     fn generates_valid_self_signed_certificate_when_pair_is_absent() {
+        use rustls::client::danger::ServerCertVerifier;
+        use rustls::pki_types::{pem::PemObject, CertificateDer, ServerName, UnixTime};
+        use std::sync::Arc;
+
         let temp = TempDir::new("generate-pair");
         let files = resolve_tls_files(None, None, &temp.0, "192.0.2.10").unwrap();
 
@@ -241,22 +240,66 @@ mod tests {
         assert!(files.cert.is_file());
         assert!(files.key.is_file());
 
-        let output = std::process::Command::new("openssl")
-            .args(["x509", "-in"])
-            .arg(&files.cert)
-            .args(["-noout", "-text"])
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        let cert = CertificateDer::from_pem_file(&files.cert).unwrap();
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert.clone()).unwrap();
+        let verifier = rustls::client::WebPkiServerVerifier::builder_with_provider(
+            Arc::new(roots),
+            Arc::new(rustls::crypto::ring::default_provider()),
+        )
+        .build()
+        .unwrap();
+        for name in ["localhost", "127.0.0.1", "::1", "192.0.2.10"] {
+            verifier
+                .verify_server_cert(
+                    &cert,
+                    &[],
+                    &ServerName::try_from(name).unwrap(),
+                    &[],
+                    UnixTime::now(),
+                )
+                .unwrap();
+        }
+        assert!(verifier
+            .verify_server_cert(
+                &cert,
+                &[],
+                &ServerName::try_from("192.0.2.11").unwrap(),
+                &[],
+                UnixTime::now(),
+            )
+            .is_err());
 
-        let details = String::from_utf8_lossy(&output.stdout);
-        assert!(details.contains("DNS:localhost"));
-        assert!(details.contains("IP Address:127.0.0.1"));
-        assert!(details.contains("IP Address:192.0.2.10"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&files.key).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        let cert_contents = fs::read(&files.cert).unwrap();
+        let key_contents = fs::read(&files.key).unwrap();
+        let reused = resolve_tls_files(None, None, &temp.0, "192.0.2.10").unwrap();
+        assert!(!reused.generated);
+        assert_eq!(fs::read(reused.cert).unwrap(), cert_contents);
+        assert_eq!(fs::read(reused.key).unwrap(), key_contents);
+    }
+
+    #[test]
+    fn failed_certificate_write_cleans_up_temporary_key() {
+        let temp = TempDir::new("failed-write");
+        let tls_dir = temp.0.join("tls");
+        fs::create_dir_all(tls_dir.join("cert.pem")).unwrap();
+        let error = resolve_tls_files(None, None, &temp.0, "0.0.0.0").unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Failed to save the HTTPS certificate"));
+        let remaining: Vec<_> = fs::read_dir(&tls_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(remaining, ["cert.pem"]);
     }
 
     #[tokio::test]
@@ -276,7 +319,9 @@ mod tests {
         let https_task = tokio::spawn(https_server);
 
         let client = reqwest::Client::builder()
-            .danger_accept_invalid_certs(true)
+            .add_root_certificate(
+                reqwest::Certificate::from_pem(&fs::read(&files.cert).unwrap()).unwrap(),
+            )
             .build()
             .unwrap();
         let http_response = client

@@ -239,10 +239,9 @@ else
 
         # Check tagged release assets
         CANDIDATE_URLS=(
-            "https://github.com/${REPO}/releases/download/${TAG}/spotifm-${TAG}-x86_64-unknown-linux-musl.tar.gz"
-            "https://github.com/${REPO}/releases/download/${TAG}/spotifm-v${VERSION_NO_V}-x86_64-unknown-linux-musl.tar.gz"
-            "https://github.com/${REPO}/releases/download/${TAG}/spotifm-${VERSION_NO_V}-x86_64-unknown-linux-musl.tar.gz"
             "https://github.com/${REPO}/releases/download/${TAG}/spotifm-linux-x86_64-musl.tar.gz"
+            "https://github.com/${REPO}/releases/download/${TAG}/spotifm-${TAG}-x86_64-unknown-linux-musl.tar.gz"
+            "https://github.com/${REPO}/releases/download/${TAG}/spotifm-${VERSION_NO_V}-x86_64-unknown-linux-musl.tar.gz"
             "https://github.com/${REPO}/releases/download/${TAG}/spotifm-x86_64-unknown-linux-musl.tar.gz"
             "https://github.com/${REPO}/releases/download/${TAG#v}/spotifm-${TAG#v}-x86_64-unknown-linux-musl.tar.gz"
         )

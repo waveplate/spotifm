@@ -4,7 +4,7 @@ FROM alpine:3.21
 ARG VERSION=v3.3.0
 ARG REPO=waveplate/spotifm
 
-RUN apk add --no-cache bash ca-certificates curl openssl tar && \
+RUN apk add --no-cache bash ca-certificates curl tar && \
     mkdir -p /app /config /root/.local/share/spotifm /root/.cache/spotifm && \
     curl -fsSL "https://raw.githubusercontent.com/${REPO}/${VERSION}/install.sh" | bash -s -- --version "${VERSION}" --repo "${REPO}" && \
     ln -sf /usr/local/share/spotifm/player /app/player && \

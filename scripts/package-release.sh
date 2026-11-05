@@ -221,8 +221,11 @@ fi
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
-PACKAGE_BASE="spotifm-v${VERSION}-${TARGET}"
-TARBALL_NAME="${PACKAGE_BASE}.tar.gz"
+if [[ "${TARGET}" == "x86_64-unknown-linux-musl" ]]; then
+    TARBALL_NAME="spotifm-linux-x86_64-musl.tar.gz"
+else
+    TARBALL_NAME="spotifm-${TARGET}.tar.gz"
+fi
 TARBALL_PATH="${OUTPUT_DIR}/${TARBALL_NAME}"
 
 # Create tarball archive (contents at archive root for clean extraction)
@@ -234,21 +237,14 @@ tar -czf "${TARBALL_PATH}" -C "${TMP_STAGE}" \
     $(test -f "${TMP_STAGE}/README.md" && echo "README.md") \
     $(test -f "${TMP_STAGE}/LICENSE" && echo "LICENSE")
 
-# Create a generic alias archive (e.g. spotifm-linux-x86_64-musl.tar.gz)
-GENERIC_TARBALL_NAME="spotifm-linux-x86_64-musl.tar.gz"
-GENERIC_TARBALL_PATH="${OUTPUT_DIR}/${GENERIC_TARBALL_NAME}"
-cp -f "${TARBALL_PATH}" "${GENERIC_TARBALL_PATH}"
-
 # Generate SHA256 checksums
 log_info "Generating SHA256 checksums..."
 (
     cd "${OUTPUT_DIR}"
     if command -v sha256sum >/dev/null 2>&1; then
         sha256sum "${TARBALL_NAME}" > "${TARBALL_NAME}.sha256"
-        sha256sum "${GENERIC_TARBALL_NAME}" > "${GENERIC_TARBALL_NAME}.sha256"
     elif command -v shasum >/dev/null 2>&1; then
         shasum -a 256 "${TARBALL_NAME}" > "${TARBALL_NAME}.sha256"
-        shasum -a 256 "${GENERIC_TARBALL_NAME}" > "${GENERIC_TARBALL_NAME}.sha256"
     else
         log_warn "Neither sha256sum nor shasum is available. Checksum file not created."
     fi
@@ -269,7 +265,6 @@ echo "  Size:      ${ARCHIVE_SIZE}"
 if [[ -n "${CHECKSUM}" ]]; then
     echo "  SHA256:    ${CHECKSUM}"
 fi
-echo "  Generic:   ${GENERIC_TARBALL_PATH}"
 echo "------------------------------------------------------------"
 echo "Archive Contents:"
 tar -ztvf "${TARBALL_PATH}"

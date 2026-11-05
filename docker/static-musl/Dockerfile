@@ -189,7 +189,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release --locked
 # ==============================================================================
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates openssl
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 

@@ -27,8 +27,7 @@ RUN apk add --no-cache \
       gstreamer \
       gst-plugins-base \
       gst-plugins-good \
-      libgcc \
-      openssl
+      libgcc
 
 WORKDIR /app
 

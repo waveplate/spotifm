@@ -9,7 +9,8 @@ spotifm serves the player, audio stream, websocket, and REST API over HTTP and H
 - HTTP: `http://<host>:3333`
 - HTTPS: `https://<host>:3443`
 
-spotifm generates and reuses a self-signed certificate and private key at:
+spotifm generates self-signed certificates internally, without an OpenSSL
+executable or shared libraries, and reuses the certificate and private key at:
 
 ```text
 $XDG_CACHE_HOME/spotifm/tls/cert.pem
