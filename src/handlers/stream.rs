@@ -191,20 +191,12 @@ pub async fn handle_stream(
     let body = warp::hyper::Body::wrap_stream(chained_stream);
     let mut response = warp::http::Response::builder()
         .header("content-type", content_type)
-        .header("cache-control", "no-store")
-        .header("access-control-allow-origin", "*")
-        .header("access-control-allow-headers", "*")
-        .header("access-control-allow-methods", "GET, OPTIONS");
+        .header("cache-control", "no-store");
     if content_type.contains("ogg") {
-        response = response
-            .header(
-                "x-spotifm-ogg-granule-rate",
-                state.ogg_page_index.granule_rate().to_string(),
-            )
-            .header(
-                "access-control-expose-headers",
-                "X-Spotifm-Ogg-Granule-Rate",
-            );
+        response = response.header(
+            "x-spotifm-ogg-granule-rate",
+            state.ogg_page_index.granule_rate().to_string(),
+        );
     }
     let response = response.body(body).unwrap();
 

@@ -62,6 +62,7 @@ documented way to reset an application-wide rate limit.
 | *(none)* | `--conf FILE` | `-c` | `./config.toml` if present, otherwise `$XDG_CONFIG_HOME/spotifm/config.toml` | config file path |
 | `api_ip` | `--api-ip` | `-s` | `0.0.0.0` | address for both HTTP and HTTPS servers |
 | `api_port` | `--api-port` | `-p` | `3333` | HTTP player/API port |
+| `cors_origins` | `--cors-origins ORIGIN` | *(none)* | `["*"]` | allowed browser origins; comma-separated or repeated CLI values replace the config list |
 | `tls_port` | `--tls-port` | *(none)* | `3443` | HTTPS player/API port |
 | `tls_cert` | `--tls-cert FILE` | *(none)* | generated certificate | PEM certificate or certificate-chain file; requires `tls_key` |
 | `tls_key` | `--tls-key FILE` | *(none)* | generated private key | PEM private-key file; requires `tls_cert` |
@@ -84,6 +85,33 @@ documented way to reset an application-wide rate limit.
 | `player` | `--player PATH` | `-w` | `./player` if present, otherwise `$XDG_DATA_HOME/spotifm/player` | local player directory or `index.html` path |
 | `gst_pipelines.<name>` | *(config only)* | *(none)* | built-in `mp3`, `opus`, and `vorbis` pipelines | custom or overridden gstreamer pipeline template |
 | `[[api_key]]` | *(config only)* | *(none)* | none | API key with `key` and a `scope` array |
+
+## cross-origin requests (CORS)
+
+HTTP and HTTPS responses allow any browser origin by default, including API
+errors. Preflight `OPTIONS` requests support `GET`, `HEAD`, `POST`, and `DELETE`
+with `Authorization`, `X-Api-Key`, `Content-Type`, and `Range` request headers.
+Browsers can read `Retry-After`, `X-Spotify-Source`, and
+`X-Spotifm-Ogg-Granule-Rate` response headers.
+
+To restrict origins, set a top-level config value:
+
+```toml
+cors_origins = ["https://player.example", "http://localhost:5173"]
+```
+
+CLI values replace the entire config list:
+
+```sh
+spotifm --cors-origins 'https://player.example,http://localhost:5173'
+spotifm --cors-origins https://player.example --cors-origins http://localhost:5173
+spotifm --cors-origins '*'
+```
+
+Origins contain a scheme, host, and optional port. `cors_origins = []` rejects
+all requests carrying an `Origin` header; requests without one still work.
+CORS does not enable cookie credentials. API keys can be sent using
+`Authorization: Bearer ...` or `X-Api-Key`.
 
 ## custom gstreamer pipelines
 

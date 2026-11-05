@@ -15,6 +15,42 @@ fn parse_player_path(value: &str) -> Result<PathBuf, String> {
     validate_player_path(PathBuf::from(value))
 }
 
+fn parse_cors_origin(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value == "*" {
+        return Ok(value.to_string());
+    }
+
+    if let Ok(url) = url::Url::parse(value) {
+        if matches!(url.scheme(), "http" | "https")
+            && url.has_host()
+            && !url.host_str().unwrap_or_default().contains('*')
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.path() == "/"
+            && url.query().is_none()
+            && url.fragment().is_none()
+        {
+            return Ok(url.origin().ascii_serialization());
+        }
+    }
+
+    Err(format!(
+        "invalid CORS origin {value:?}: expected '*' or an HTTP(S) origin such as https://player.example"
+    ))
+}
+
+fn resolve_cors_origins(
+    cli: Option<Vec<String>>,
+    config: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    cli.or(config)
+        .unwrap_or_else(|| vec!["*".to_string()])
+        .iter()
+        .map(|origin| parse_cors_origin(origin))
+        .collect()
+}
+
 pub fn normalize_endpoint_path(value: &str, default_value: &str) -> String {
     let mut endpoint = value.trim();
     if endpoint.is_empty() {
@@ -79,6 +115,16 @@ pub struct CliArgs {
     /// HTTP API and player port [default: 3333]
     #[arg(short = 'p', long = "api-port", help_heading = "Main options")]
     pub api_port: Option<u16>,
+
+    /// Allowed CORS origins, comma-separated or repeated; '*' allows any origin [default: *]
+    #[arg(
+        long = "cors-origins",
+        value_name = "ORIGIN",
+        value_delimiter = ',',
+        value_parser = parse_cors_origin,
+        help_heading = "Main options"
+    )]
+    pub cors_origins: Option<Vec<String>>,
 
     /// HTTPS API and player port [default: 3443]
     #[arg(long = "tls-port", help_heading = "TLS options")]
@@ -202,6 +248,7 @@ pub struct ConfigFile {
     pub client_id: Option<String>,
     pub api_ip: Option<String>,
     pub api_port: Option<u16>,
+    pub cors_origins: Option<Vec<String>>,
     pub tls_port: Option<u16>,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
@@ -237,6 +284,7 @@ pub struct Cli {
     pub client_id: String,
     pub api_ip: String,
     pub api_port: u16,
+    pub cors_origins: Vec<String>,
     pub tls_port: u16,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
@@ -414,6 +462,7 @@ impl Cli {
             }
             let default_toml_content = r#"api_ip = "0.0.0.0"
 api_port = 3333
+cors_origins = ["*"]
 tls_port = 3443
 # tls_cert = "/path/to/fullchain.pem"
 # tls_key = "/path/to/privkey.pem"
@@ -483,6 +532,12 @@ player = "player"
             .or(toml_config.api_ip.clone())
             .unwrap_or_else(|| "0.0.0.0".to_string());
 
+        let cors_origins = resolve_cors_origins(args.cors_origins, toml_config.cors_origins)
+            .unwrap_or_else(|error| {
+                eprintln!("[Config] {error}");
+                std::process::exit(2);
+            });
+
         let bitrate = args.bitrate.or(toml_config.bitrate).unwrap_or(320);
         let max_buffers = args.max_buffers.or(toml_config.max_buffers).unwrap_or(10);
 
@@ -529,6 +584,7 @@ player = "player"
                 .unwrap_or_else(|| "d420a117a32841c2b3474932e49fb54b".to_string()),
             api_ip,
             api_port: args.api_port.or(toml_config.api_port).unwrap_or(3333),
+            cors_origins,
             tls_port: args.tls_port.or(toml_config.tls_port).unwrap_or(3443),
             tls_cert: args.tls_cert.or(toml_config.tls_cert),
             tls_key: args.tls_key.or(toml_config.tls_key),
@@ -588,7 +644,8 @@ player = "player"
 mod tests {
     use super::{
         default_gst_pipelines, default_player_path, playlist_path_for_data_home,
-        resolve_config_and_playlist_paths, xdg_playlist_path, CliArgs, ConfigFile,
+        resolve_config_and_playlist_paths, resolve_cors_origins, xdg_playlist_path, CliArgs,
+        ConfigFile,
     };
     use clap::Parser;
     use std::path::{Path, PathBuf};
@@ -614,6 +671,73 @@ mod tests {
                 .unwrap();
         assert_eq!(explicit.no_browser, Some(false));
         assert_eq!(explicit.skip_import, Some(false));
+    }
+
+    #[test]
+    fn cors_defaults_and_config_are_resolved_with_cli_precedence() {
+        assert_eq!(resolve_cors_origins(None, None).unwrap(), ["*"]);
+
+        let config: ConfigFile = toml::from_str(
+            r#"cors_origins = ["https://player.example/", "http://localhost:5173"]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            resolve_cors_origins(None, config.cors_origins.clone()).unwrap(),
+            ["https://player.example", "http://localhost:5173"]
+        );
+        let args = CliArgs::try_parse_from(["spotifm", "--cors-origins", "*"]).unwrap();
+        assert_eq!(
+            resolve_cors_origins(args.cors_origins, config.cors_origins).unwrap(),
+            ["*"]
+        );
+
+        let config: ConfigFile = toml::from_str("cors_origins = []").unwrap();
+        assert!(resolve_cors_origins(None, config.cors_origins)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn cors_flag_accepts_comma_separated_and_repeated_origins() {
+        let args = CliArgs::try_parse_from([
+            "spotifm",
+            "--cors-origins",
+            "https://player.example, http://localhost:5173",
+            "--cors-origins",
+            "https://other.example/",
+        ])
+        .unwrap();
+        assert_eq!(
+            args.cors_origins.unwrap(),
+            [
+                "https://player.example",
+                "http://localhost:5173",
+                "https://other.example"
+            ]
+        );
+    }
+
+    #[test]
+    fn invalid_cors_origins_are_rejected_in_cli_and_config() {
+        for origin in [
+            "",
+            "player.example",
+            "https://*.example",
+            "https://player.example/path",
+            "https://player.example?query",
+            "https://player.example#fragment",
+            "https://user:password@player.example",
+            "file:///tmp/player.html",
+        ] {
+            assert!(
+                CliArgs::try_parse_from(["spotifm", "--cors-origins", origin]).is_err(),
+                "{origin}"
+            );
+            assert!(
+                resolve_cors_origins(None, Some(vec![origin.to_string()])).is_err(),
+                "{origin}"
+            );
+        }
     }
 
     #[test]

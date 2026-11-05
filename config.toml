@@ -8,6 +8,12 @@
 # Port number for the non-TLS HTTP server
 api_port = 3333
 
+# Allowed browser origins for the API, player, stream, and lyrics (HTTP and HTTPS).
+# Use ["*"] to allow any origin, a list of HTTP(S) origins to restrict access,
+# or [] to reject all cross-origin requests. CLI --cors-origins overrides this list.
+cors_origins = ["*"]
+# cors_origins = ["https://player.example", "http://localhost:5173"]
+
 # Port number for the HTTPS server
 tls_port = 3443
 

@@ -3165,7 +3165,7 @@ dependencies = [
 
 [[package]]
 name = "spotifm"
-version = "3.2.0-beta"
+version = "3.3.0"
 dependencies = [
  "async-trait",
  "bytes",

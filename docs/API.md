@@ -5,6 +5,10 @@ default. The automatically generated certificate is self-signed, so clients
 must trust it explicitly or use a certificate supplied with
 `tls_cert`/`tls_key`.
 
+All browser origins are allowed by default. Set `cors_origins` in the config
+file or pass `--cors-origins` to restrict them; see
+[CORS configuration](configuration.md#cross-origin-requests-cors).
+
 Examples marked as live were fetched from `https://radio.etalon.cc` on May 31, 2026. Values will vary on your own instance.
 
 Most error responses use:

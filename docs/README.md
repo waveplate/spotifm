@@ -3,6 +3,7 @@
 - [standalone player demo](demo/)
 - [building spotifm](building.md)
 - [static musl build](static-musl-build.md)
+- [3.3.0 release notes](releases/3.3.0.md)
 - [3.2.0-beta release notes](releases/3.2.0-beta.md)
 - [configuration and usage](configuration.md)
 - [anonymous Spotify search fallback and probe](anonymous-search.md)

@@ -24,6 +24,7 @@ mod audio;
 mod cache_paths;
 mod catalog;
 mod cli;
+mod cors;
 mod handlers;
 mod logging;
 mod lyrics;
@@ -198,6 +199,7 @@ async fn authorize_with_gateway(
         code_tx,
         phase.to_string(),
     );
+    let routes = cors::with_cors(routes, &cli.cors_origins);
 
     let listen_ip = cli
         .oauth_ip
@@ -923,7 +925,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .or(stream_route)
         .or(player_asset_route);
 
-    let routes = routes.recover(handle_rejection);
+    let routes = cors::with_cors(routes.recover(handle_rejection), &cli.cors_origins);
 
     let http_addr = format!("{}:{}", cli.api_ip, cli.api_port).parse::<SocketAddr>()?;
     let https_addr = format!("{}:{}", cli.api_ip, cli.tls_port).parse::<SocketAddr>()?;
@@ -1237,6 +1239,9 @@ async fn handle_rejection(
                 message = "Permission denied for this API key.";
             }
         }
+    } else if err.find::<warp::cors::CorsForbidden>().is_some() {
+        code = StatusCode::FORBIDDEN;
+        message = "CORS request forbidden.";
     } else if err.find::<warp::reject::MethodNotAllowed>().is_some() {
         code = StatusCode::METHOD_NOT_ALLOWED;
         message = "METHOD_NOT_ALLOWED";

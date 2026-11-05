@@ -37,16 +37,10 @@ pub async fn handle_lyrics_rest(state: Arc<AppState>) -> Result<impl Reply, Infa
     let response = match current {
         Some(msg) => warp::http::Response::builder()
             .header("content-type", "application/json; charset=utf-8")
-            .header("access-control-allow-origin", "*")
-            .header("access-control-allow-headers", "*")
-            .header("access-control-allow-methods", "GET, OPTIONS")
             .body(serde_json::to_string(&msg).unwrap())
             .unwrap(),
         None => warp::http::Response::builder()
             .header("content-type", "application/json; charset=utf-8")
-            .header("access-control-allow-origin", "*")
-            .header("access-control-allow-headers", "*")
-            .header("access-control-allow-methods", "GET, OPTIONS")
             .body(serde_json::to_string(&LyricsMessage::Idle).unwrap())
             .unwrap(),
     };
