@@ -67,7 +67,7 @@ documented way to reset an application-wide rate limit.
 | `tls_cert` | `--tls-cert FILE` | *(none)* | generated certificate | PEM certificate or certificate-chain file; requires `tls_key` |
 | `tls_key` | `--tls-key FILE` | *(none)* | generated private key | PEM private-key file; requires `tls_cert` |
 | `client_id` | `--client-id` | `-d` | `d420a117a32841c2b3474932e49fb54b` | spotify client ID |
-| `redirect_uri` | `--redirect-uri` | `-r` | `http://127.0.0.1:3333/login` | registered redirect URI for a custom Web API client; bundled loopback clients use `api_port` |
+| `redirect_uri` | `--redirect-uri` | `-r` | `http://127.0.0.1:8898/login` | OAuth redirect URI sent to Spotify |
 | `oauth_ip` | `--oauth-ip` | `-S` | `0.0.0.0` | oauth listener address |
 | `oauth_port` | `--oauth-port` | `-P` | redirect URI port | oauth listener port override |
 | `no_browser` | `--no-browser [BOOL]` | `-x` | `false` | prevent opening the authorization page |

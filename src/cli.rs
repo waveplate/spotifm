@@ -467,7 +467,7 @@ tls_port = 3443
 # tls_cert = "/path/to/fullchain.pem"
 # tls_key = "/path/to/privkey.pem"
 client_id = "d420a117a32841c2b3474932e49fb54b"
-redirect_uri = "http://127.0.0.1:3333/login"
+redirect_uri = "http://127.0.0.1:8898/login"
 oauth_ip = "0.0.0.0"
 no_browser = false
 bitrate = 320
@@ -524,7 +524,7 @@ player = "player"
             .redirect_uri
             .clone()
             .or(toml_config.redirect_uri.clone())
-            .unwrap_or_else(|| "http://127.0.0.1:3333/login".to_string());
+            .unwrap_or_else(|| "http://127.0.0.1:8898/login".to_string());
 
         let api_ip = args
             .api_ip

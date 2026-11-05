@@ -85,17 +85,43 @@ struct OAuthCallback {
     state: Option<String>,
 }
 
-fn effective_web_api_redirect_uri(cli: &Cli) -> String {
-    if cli.client_id == NCSPOT_WEB_API_CLIENT_ID {
-        if let Ok(url) = Url::parse(&cli.redirect_uri) {
-            let is_loopback = matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
-            if url.scheme() == "http" && is_loopback {
-                return format!("http://127.0.0.1:{}/login", cli.api_port);
-            }
-        }
-    }
+#[derive(Debug, PartialEq, Eq)]
+struct OAuthCallbackListenerConfig {
+    callback_path: String,
+    listen_port: u16,
+    callback_uses_tls: bool,
+    callback_uses_gateway: bool,
+}
 
-    cli.redirect_uri.clone()
+fn resolve_oauth_callback_listener(
+    redirect_uri: &str,
+    oauth_port: Option<u16>,
+    api_port: u16,
+    tls_port: u16,
+) -> Result<OAuthCallbackListenerConfig, Box<dyn Error>> {
+    let redirect_url = Url::parse(redirect_uri)?;
+    let callback_path = redirect_url.path().to_string();
+    let redirect_port = redirect_url
+        .port_or_known_default()
+        .ok_or_else(|| format!("OAuth redirect URI has no usable port: {redirect_uri}"))?;
+    let listen_port = oauth_port.unwrap_or(redirect_port);
+    let callback_uses_tls = match redirect_url.scheme() {
+        "http" => false,
+        "https" => true,
+        scheme => return Err(format!("Unsupported OAuth redirect URI scheme: {scheme}").into()),
+    };
+    let callback_uses_gateway = if callback_uses_tls {
+        listen_port == tls_port
+    } else {
+        listen_port == api_port
+    };
+
+    Ok(OAuthCallbackListenerConfig {
+        callback_path,
+        listen_port,
+        callback_uses_tls,
+        callback_uses_gateway,
+    })
 }
 
 fn oauth_gateway_routes(
@@ -189,12 +215,16 @@ async fn authorize_with_gateway(
 ) -> Result<(), Box<dyn Error>> {
     let auth_url = spotify.get_authorize_url(None)?;
     let expected_state = spotify.oauth.state.clone();
-    let redirect_url = Url::parse(&spotify.oauth.redirect_uri)?;
-    let callback_path = redirect_url.path().to_string();
+    let listener_cfg = resolve_oauth_callback_listener(
+        &spotify.oauth.redirect_uri,
+        cli.oauth_port,
+        cli.api_port,
+        cli.tls_port,
+    )?;
     let (code_tx, mut code_rx) = tokio::sync::mpsc::channel::<String>(1);
     let routes = oauth_gateway_routes(
         auth_url.clone(),
-        callback_path,
+        listener_cfg.callback_path,
         expected_state,
         code_tx,
         phase.to_string(),
@@ -205,27 +235,14 @@ async fn authorize_with_gateway(
         .oauth_ip
         .clone()
         .unwrap_or_else(|| "0.0.0.0".to_string());
-    let redirect_port = redirect_url.port_or_known_default().ok_or_else(|| {
-        format!(
-            "OAuth redirect URI has no usable port: {}",
-            spotify.oauth.redirect_uri
-        )
-    })?;
-    let listen_port = cli.oauth_port.unwrap_or(redirect_port);
-    let callback_uses_tls = match redirect_url.scheme() {
-        "http" => false,
-        "https" => true,
-        scheme => return Err(format!("Unsupported OAuth redirect URI scheme: {scheme}").into()),
-    };
-    let callback_uses_gateway = if callback_uses_tls {
-        redirect_port == cli.tls_port || listen_port == cli.tls_port
-    } else {
-        redirect_port == cli.api_port || listen_port == cli.api_port
-    };
-    let callback_listener_addr = if callback_uses_gateway {
+    let callback_uses_tls = listener_cfg.callback_uses_tls;
+    let callback_listener_addr = if listener_cfg.callback_uses_gateway {
         None
     } else {
-        Some(resolve_oauth_listener_addr(&listen_ip, listen_port)?)
+        Some(resolve_oauth_listener_addr(
+            &listen_ip,
+            listener_cfg.listen_port,
+        )?)
     };
 
     let api_addr = format!("{}:{}", cli.api_ip, cli.api_port).parse::<SocketAddr>()?;
@@ -377,10 +394,9 @@ async fn request_librespot_credentials(
         "[OAuth/Playback] This is separate from the Web API authorization and happens only when playback credentials are missing or rejected."
     );
 
-    let redirect_uri = format!("http://127.0.0.1:{}/login", cli.api_port);
     let credentials = RCreds::new_pkce(&session_config.client_id);
     let oauth = OAuth {
-        redirect_uri,
+        redirect_uri: cli.redirect_uri.clone(),
         scopes: ["streaming".to_string()].into_iter().collect(),
         ..Default::default()
     };
@@ -487,13 +503,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("-> Rustls TLS provider installed.");
 
     // 3) OAuth & librespot session
-    let redirect_uri = effective_web_api_redirect_uri(&cli);
-    if redirect_uri != cli.redirect_uri {
-        println!(
-            "[OAuth/Web API] Using the configured HTTP server for the loopback callback: {redirect_uri}"
-        );
-    }
-
     let tls_files = resolve_tls_files(
         cli.tls_cert.as_deref(),
         cli.tls_key.as_deref(),
@@ -542,7 +551,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let rcreds = RCreds::new_pkce(&cli.client_id);
     let ropts = OAuth {
-        redirect_uri: redirect_uri.clone(),
+        redirect_uri: cli.redirect_uri.clone(),
         scopes: WEB_API_SCOPES
             .iter()
             .map(|scope| (*scope).to_string())
@@ -1038,6 +1047,42 @@ mod oauth_gateway_tests {
             serde_json::from_slice::<serde_json::Value>(checking.body()).unwrap()["status"],
             "checking"
         );
+    }
+
+    #[test]
+    fn oauth_listener_port_inherits_from_redirect_uri_unless_oauth_port_is_set() {
+        let inherited =
+            resolve_oauth_callback_listener("http://127.0.0.1:8898/login", None, 3333, 3443)
+                .unwrap();
+        assert_eq!(
+            inherited,
+            OAuthCallbackListenerConfig {
+                callback_path: "/login".to_string(),
+                listen_port: 8898,
+                callback_uses_tls: false,
+                callback_uses_gateway: false,
+            }
+        );
+
+        let overridden = resolve_oauth_callback_listener(
+            "http://127.0.0.1:8898/login",
+            Some(9999),
+            3333,
+            3443,
+        )
+        .unwrap();
+        assert_eq!(overridden.listen_port, 9999);
+        assert!(!overridden.callback_uses_gateway);
+
+        let proxied_from_gateway_port = resolve_oauth_callback_listener(
+            "http://radio.example:3333/login",
+            Some(8898),
+            3333,
+            3443,
+        )
+        .unwrap();
+        assert_eq!(proxied_from_gateway_port.listen_port, 8898);
+        assert!(!proxied_from_gateway_port.callback_uses_gateway);
     }
 }
 
