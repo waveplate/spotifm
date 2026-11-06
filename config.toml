@@ -20,9 +20,12 @@ tls_port = 3443
 # tls_cert = "/etc/letsencrypt/live/radio.example/fullchain.pem"
 # tls_key = "/etc/letsencrypt/live/radio.example/privkey.pem"
 
-# ===> Spotify Client ID for API authentication (borrowed from ncspot)
-# The default client_id will allow you to use http://127.0.0.1:8898/login as the redirect URI
+# ===> Web API client ID for rspotify (borrowed from ncspot)
 client_id = "d420a117a32841c2b3474932e49fb54b"
+
+# ===> Playback client ID for librespot authentication and the playback session
+# Omit this to use librespot's platform-specific default (shown here for desktop).
+# playback_client_id = "65b708073fc0480ea92a077233ca87bd"
 
 # ===> OAuth redirect URI
 redirect_uri = "http://127.0.0.1:8898/login"

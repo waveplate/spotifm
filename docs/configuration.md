@@ -20,12 +20,15 @@ you can create an application in the spotify developer dashboard to use a public
 
 Spotifm follows [ncspot's separate authentication flows](https://github.com/hrkfdn/ncspot/blob/47c12502908a952f03e7c9f8224eb28d10c0ca07/src/authentication.rs):
 
-- Playback uses librespot's default client ID, `65b708073fc0480ea92a077233ca87bd`
-  on desktop, and reusable `credentials.json` credentials.
+- Playback uses `playback_client_id`, or librespot's default client ID when
+  omitted (`65b708073fc0480ea92a077233ca87bd` on desktop), and reusable
+  `credentials.json` credentials. The same ID is used for playback OAuth and
+  the librespot session.
 - Search and metadata first use the configured Web API client ID, by default
   `d420a117a32841c2b3474932e49fb54b`, and `rspotify_token.json`.
 
-`--client-id` changes the Web API app. Its refresh token must have been issued
+`--playback-client-id` overrides the playback ID independently. `--client-id`
+changes the Web API app. Its refresh token must have been issued
 for that app. If catalogue requests fail, Spotifm can use anonymous web-player
 search and the existing playback session for metadata. See
 [anonymous search fallback](anonymous-search.md) for behavior and diagnostics.
@@ -67,6 +70,7 @@ documented way to reset an application-wide rate limit.
 | `tls_cert` | `--tls-cert FILE` | *(none)* | generated certificate | PEM certificate or certificate-chain file; requires `tls_key` |
 | `tls_key` | `--tls-key FILE` | *(none)* | generated private key | PEM private-key file; requires `tls_cert` |
 | `client_id` | `--client-id` | `-d` | `d420a117a32841c2b3474932e49fb54b` | spotify client ID |
+| `playback_client_id` | `--playback-client-id` | *(none)* | librespot platform default | client ID for playback OAuth and the playback session; independent of `client_id` |
 | `redirect_uri` | `--redirect-uri` | `-r` | `http://127.0.0.1:8898/login` | OAuth redirect URI sent to Spotify |
 | `oauth_ip` | `--oauth-ip` | `-S` | `0.0.0.0` | oauth listener address |
 | `oauth_port` | `--oauth-port` | `-P` | redirect URI port | oauth listener port override |

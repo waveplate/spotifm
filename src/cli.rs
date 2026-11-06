@@ -104,6 +104,10 @@ pub struct CliArgs {
     #[arg(short = 'd', long = "client-id", help_heading = "Main options")]
     pub client_id: Option<String>,
 
+    /// Playback client ID [default: librespot's platform-specific client ID]
+    #[arg(long = "playback-client-id", help_heading = "OAuth options")]
+    pub playback_client_id: Option<String>,
+
     /// Override the default OAuth redirect URI [default: http://127.0.0.1:8898/login]
     #[arg(short = 'r', long = "redirect-uri", help_heading = "Main options")]
     pub redirect_uri: Option<String>,
@@ -246,6 +250,7 @@ pub struct ConfigFile {
     pub skip_import: Option<bool>,
     pub url_file: Option<PathBuf>,
     pub client_id: Option<String>,
+    pub playback_client_id: Option<String>,
     pub api_ip: Option<String>,
     pub api_port: Option<u16>,
     pub cors_origins: Option<Vec<String>>,
@@ -282,6 +287,7 @@ pub struct Cli {
     pub skip_import: bool,
     pub url_file: Option<PathBuf>,
     pub client_id: String,
+    pub playback_client_id: Option<String>,
     pub api_ip: String,
     pub api_port: u16,
     pub cors_origins: Vec<String>,
@@ -467,6 +473,7 @@ tls_port = 3443
 # tls_cert = "/path/to/fullchain.pem"
 # tls_key = "/path/to/privkey.pem"
 client_id = "d420a117a32841c2b3474932e49fb54b"
+# playback_client_id = "65b708073fc0480ea92a077233ca87bd"
 redirect_uri = "http://127.0.0.1:8898/login"
 oauth_ip = "0.0.0.0"
 no_browser = false
@@ -582,6 +589,7 @@ player = "player"
                 .client_id
                 .or(toml_config.client_id)
                 .unwrap_or_else(|| "d420a117a32841c2b3474932e49fb54b".to_string()),
+            playback_client_id: args.playback_client_id.or(toml_config.playback_client_id),
             api_ip,
             api_port: args.api_port.or(toml_config.api_port).unwrap_or(3333),
             cors_origins,
@@ -658,6 +666,28 @@ mod tests {
 
         assert_eq!(config_path, PathBuf::from("/srv/spotifm/custom.toml"));
         assert_eq!(playlist_path, xdg_playlist_path());
+    }
+
+    #[test]
+    fn playback_and_web_api_client_ids_are_independent_options() {
+        let args = CliArgs::try_parse_from([
+            "spotifm",
+            "--client-id",
+            "web-api-app",
+            "--playback-client-id",
+            "playback-app",
+        ])
+        .unwrap();
+        assert_eq!(args.client_id.as_deref(), Some("web-api-app"));
+        assert_eq!(args.playback_client_id.as_deref(), Some("playback-app"));
+        let config: ConfigFile =
+            toml::from_str("client_id = 'web-api-config'\nplayback_client_id = 'playback-config'")
+                .unwrap();
+        assert_eq!(config.client_id.as_deref(), Some("web-api-config"));
+        assert_eq!(
+            config.playback_client_id.as_deref(),
+            Some("playback-config")
+        );
     }
 
     #[test]

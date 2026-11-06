@@ -424,7 +424,10 @@ async fn connect_librespot_session(
     cache_dir: &std::path::Path,
     tls_files: &TlsFiles,
 ) -> Result<Session, Box<dyn Error>> {
-    let session_config = SessionConfig::default();
+    let mut session_config = SessionConfig::default();
+    if let Some(client_id) = &cli.playback_client_id {
+        session_config.client_id = client_id.clone();
+    }
     let cache = librespot::core::cache::Cache::new(
         Some(cache_dir.to_path_buf()),
         None::<std::path::PathBuf>,
@@ -1064,13 +1067,9 @@ mod oauth_gateway_tests {
             }
         );
 
-        let overridden = resolve_oauth_callback_listener(
-            "http://127.0.0.1:8898/login",
-            Some(9999),
-            3333,
-            3443,
-        )
-        .unwrap();
+        let overridden =
+            resolve_oauth_callback_listener("http://127.0.0.1:8898/login", Some(9999), 3333, 3443)
+                .unwrap();
         assert_eq!(overridden.listen_port, 9999);
         assert!(!overridden.callback_uses_gateway);
 
