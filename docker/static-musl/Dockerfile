@@ -98,9 +98,9 @@ RUN git clone --depth 1 --branch 1.24.12 https://gitlab.freedesktop.org/gstreame
     ninja -C build-static install
 
 # ==============================================================================
-# Stage 2: Build static Rust application
+# Stage 2: Reusable static Rust toolchain (independent of application sources)
 # ==============================================================================
-FROM rust:alpine AS rust-builder
+FROM rust:alpine AS rust-toolchain
 
 RUN apk add --no-cache \
     gcc \
@@ -124,10 +124,6 @@ COPY --from=gst-builder /opt/glib-static /opt/glib-static
 COPY --from=gst-builder /opt/gstreamer-static /opt/gstreamer-static
 
 WORKDIR /app
-
-COPY Cargo.toml Cargo.lock ./
-COPY build.rs ./build.rs
-COPY src ./src
 
 ENV PKG_CONFIG_PATH="/opt/glib-static/lib/pkgconfig:/opt/local-static/lib/pkgconfig:/opt/gstreamer-static/lib/pkgconfig:/opt/gstreamer-static/lib/gstreamer-1.0/pkgconfig"
 ENV PKG_CONFIG_ALL_STATIC=1
@@ -181,6 +177,14 @@ ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="\
 -C link-arg=-ldl \
 -C link-arg=-lc \
 -C link-arg=-Wl,--end-group"
+
+# Keep a self-contained image build available for the runtime stage below.
+# The local build script uses rust-toolchain with persistent Cargo volumes instead.
+FROM rust-toolchain AS rust-builder
+
+COPY Cargo.toml Cargo.lock ./
+COPY build.rs ./build.rs
+COPY src ./src
 
 RUN cargo build --target x86_64-unknown-linux-musl --release --locked
 

@@ -83,6 +83,7 @@ pub struct SpotifyClient {
     pub catalog: Arc<crate::catalog::CatalogFallback>,
     catalog_fallback_until: Arc<std::sync::Mutex<Option<Instant>>>,
     catalog_failures: Arc<AtomicU64>,
+    catalog_only: bool,
 }
 
 impl SpotifyClient {
@@ -95,6 +96,14 @@ impl SpotifyClient {
             catalog: Default::default(),
             catalog_fallback_until: Default::default(),
             catalog_failures: Default::default(),
+            catalog_only: false,
+        }
+    }
+
+    pub fn catalog_only() -> Self {
+        Self {
+            catalog_only: true,
+            ..Self::default()
         }
     }
 
@@ -104,10 +113,12 @@ impl SpotifyClient {
     }
 
     pub fn prefer_catalog_fallback(&self) -> bool {
-        self.catalog_fallback_until
-            .lock()
-            .unwrap()
-            .is_some_and(|until| Instant::now() < until)
+        self.catalog_only
+            || self
+                .catalog_fallback_until
+                .lock()
+                .unwrap()
+                .is_some_and(|until| Instant::now() < until)
     }
 
     pub fn catalog_failure_count(&self) -> u64 {
@@ -135,6 +146,9 @@ impl SpotifyClient {
     }
 
     pub async fn ensure_fresh(&self) -> ClientResult<()> {
+        if self.catalog_only {
+            return Ok(());
+        }
         self.tokens.ensure_fresh(&self.inner).await
     }
 
@@ -318,6 +332,9 @@ impl BaseClient for SpotifyClient {
     }
 
     async fn api_get(&self, url: &str, payload: &Query<'_>) -> ClientResult<String> {
+        if self.catalog_only {
+            return Err(ClientError::InvalidToken);
+        }
         let result = self.api_get_web(url, payload).await;
         if let Err(error) = &result {
             self.note_catalog_failure(error);
@@ -406,6 +423,38 @@ mod tests {
         Arc,
     };
     use warp::Filter;
+
+    #[tokio::test]
+    async fn catalog_only_skips_token_refresh_and_web_api_even_with_a_cached_token() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counter = requests.clone();
+        let (address, server) = warp::serve(warp::any().map(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            warp::reply()
+        }))
+        .bind_ephemeral(([127, 0, 0, 1], 0));
+        tokio::spawn(server);
+        let mut client = mock_client(address).await;
+        client.catalog_only = true;
+        client
+            .inner
+            .token
+            .lock()
+            .await
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .expires_at = None;
+
+        assert!(client.prefer_catalog_fallback());
+        client.ensure_fresh().await.unwrap();
+        assert!(matches!(
+            client.api_get("resource", &Default::default()).await,
+            Err(rspotify::ClientError::InvalidToken)
+        ));
+        assert_eq!(requests.load(Ordering::SeqCst), 0);
+        assert_eq!(client.catalog_failure_count(), 0);
+    }
 
     #[test]
     fn diagnostic_summary_records_only_error_fields_and_redacts_credentials() {

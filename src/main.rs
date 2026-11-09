@@ -124,12 +124,54 @@ fn resolve_oauth_callback_listener(
     })
 }
 
+#[derive(Clone)]
+struct OAuthCompletionConfig {
+    callback_port: u16,
+    listener_port: u16,
+    callback_uses_tls: bool,
+    api_port: u16,
+    tls_port: u16,
+}
+
+impl OAuthCompletionConfig {
+    fn location(&self, request_host: Option<&str>) -> Result<String, Box<dyn Error>> {
+        let Some(request_host) = request_host else {
+            return Ok("/oauth/complete".to_string());
+        };
+        let authority = request_host.parse::<warp::http::uri::Authority>()?;
+        let port = authority.port_u16();
+        let uses_callback_port =
+            port == Some(self.callback_port) || port == Some(self.listener_port);
+        let uses_gateway_port = port == Some(self.api_port) || port == Some(self.tls_port);
+
+        // A callback through the main server or a reverse proxy must keep the
+        // browser's origin, including its public port and HTTP/HTTPS scheme.
+        if !uses_callback_port || uses_gateway_port {
+            return Ok("/oauth/complete".to_string());
+        }
+
+        // Only a direct callback on the dedicated listener needs a port change.
+        // Its hostname comes from this request, never the configured redirect URI.
+        let (scheme, gateway_port) = if self.callback_uses_tls {
+            ("https", self.tls_port)
+        } else {
+            ("http", self.api_port)
+        };
+        let mut url = Url::parse(&format!("{scheme}://{authority}"))?;
+        url.set_port(Some(gateway_port))
+            .map_err(|_| "OAuth callback Host cannot be used as a gateway URL")?;
+        url.set_path("/oauth/complete");
+        Ok(url.into())
+    }
+}
+
 fn oauth_gateway_routes(
     auth_url: String,
     callback_path: String,
     expected_state: String,
     code_tx: tokio::sync::mpsc::Sender<String>,
     phase: String,
+    completion: OAuthCompletionConfig,
 ) -> impl Filter<Extract = (warp::http::Response<String>,), Error = std::convert::Infallible> + Clone
 {
     let callback_received = Arc::new(AtomicBool::new(false));
@@ -166,11 +208,22 @@ fn oauth_gateway_routes(
             .unwrap()
     });
 
+    let completion_route = warp::path!("oauth" / "complete")
+        .and(warp::get())
+        .map(move || {
+            warp::http::Response::builder()
+                .header("content-type", "text/html; charset=utf-8")
+                .header("cache-control", "no-store")
+                .body(authorization_transition_page(&phase))
+                .unwrap()
+        });
+
     let callback_received_for_route = callback_received;
     let callback_route = endpoint_path_filter(callback_path)
         .and(warp::get())
         .and(warp::query::<OAuthCallback>())
-        .map(move |callback: OAuthCallback| {
+        .and(warp::header::optional::<String>("host"))
+        .map(move |callback: OAuthCallback, host: Option<String>| {
             if callback.state.as_deref() != Some(expected_state.as_str()) {
                 return warp::http::Response::builder()
                     .status(warp::http::StatusCode::BAD_REQUEST)
@@ -179,14 +232,22 @@ fn oauth_gateway_routes(
                     .unwrap();
             }
 
+            let location = match completion.location(host.as_deref()) {
+                Ok(location) => location,
+                Err(_) => {
+                    return warp::http::Response::builder()
+                        .status(warp::http::StatusCode::BAD_REQUEST)
+                        .body("Invalid OAuth callback Host".to_string())
+                        .unwrap();
+                }
+            };
             callback_received_for_route.store(true, Ordering::Release);
             let _ = code_tx.try_send(callback.code);
-            let body = authorization_transition_page(&phase);
             warp::http::Response::builder()
-                .status(warp::http::StatusCode::OK)
-                .header("content-type", "text/html; charset=utf-8")
+                .status(warp::http::StatusCode::SEE_OTHER)
+                .header("location", location)
                 .header("cache-control", "no-store")
-                .body(body)
+                .body(String::new())
                 .unwrap()
         });
 
@@ -202,6 +263,8 @@ fn oauth_gateway_routes(
         .or(oauth_route)
         .unify()
         .or(callback_route)
+        .unify()
+        .or(completion_route)
         .unify()
         .or(pre_auth_redirect)
         .unify()
@@ -228,6 +291,15 @@ async fn authorize_with_gateway(
         expected_state,
         code_tx,
         phase.to_string(),
+        OAuthCompletionConfig {
+            callback_port: Url::parse(&spotify.oauth.redirect_uri)?
+                .port_or_known_default()
+                .ok_or("OAuth redirect URI has no usable port")?,
+            listener_port: listener_cfg.listen_port,
+            callback_uses_tls: listener_cfg.callback_uses_tls,
+            api_port: cli.api_port,
+            tls_port: cli.tls_port,
+        },
     );
     let routes = cors::with_cors(routes, &cli.cors_origins);
 
@@ -424,10 +496,10 @@ async fn connect_librespot_session(
     cache_dir: &std::path::Path,
     tls_files: &TlsFiles,
 ) -> Result<Session, Box<dyn Error>> {
-    let mut session_config = SessionConfig::default();
-    if let Some(client_id) = &cli.playback_client_id {
-        session_config.client_id = client_id.clone();
-    }
+    let session_config = SessionConfig {
+        client_id: cli.client_id.clone(),
+        ..Default::default()
+    };
     let cache = librespot::core::cache::Cache::new(
         Some(cache_dir.to_path_buf()),
         None::<std::path::PathBuf>,
@@ -469,6 +541,98 @@ async fn connect_librespot_session(
         }
         Err(error) => Err(error.into()),
     }
+}
+
+async fn setup_spotify_client(
+    cli: &Cli,
+    cache_dir: &std::path::Path,
+    tls_files: &TlsFiles,
+) -> Result<spotify::SpotifyClient, Box<dyn Error>> {
+    let Some(client_id) = cli.rspotify_client_id.as_deref() else {
+        println!("[Catalogue] rspotify_client_id is unset; using anonymous search and playback-session metadata without Web API OAuth.");
+        return Ok(spotify::SpotifyClient::catalog_only());
+    };
+
+    // 4) rspotify Web API client setup with local token caching
+    let token_cache_path = cache_dir.join("rspotify_token.json");
+    if client_id == NCSPOT_WEB_API_CLIENT_ID && !cli.skip_import {
+        try_import_ncspot_token(&token_cache_path);
+    }
+    let rconfig = RConfig {
+        cache_path: token_cache_path.clone(),
+        token_cached: true,
+        token_refreshing: false,
+        ..Default::default()
+    };
+    let rcreds = RCreds::new_pkce(client_id);
+    let ropts = OAuth {
+        redirect_uri: cli.rspotify_redirect_uri.clone(),
+        scopes: WEB_API_SCOPES
+            .iter()
+            .map(|scope| (*scope).to_string())
+            .collect(),
+        ..Default::default()
+    };
+    let mut spotify = AuthCodePkceSpotify::with_config(rcreds, ropts, rconfig);
+
+    // Check if we have a valid cached token
+    let mut has_token = false;
+    // Reuse only tokens with known required scopes. An imported ncspot token
+    // with unknown scopes must trigger fresh Web API authorization, as it did
+    // with rspotify's cache reader, instead of silently reusing that grant.
+    if let Ok(tok) = rspotify::Token::from_cache(&token_cache_path) {
+        let cached_scopes_are_sufficient = WEB_API_SCOPES
+            .iter()
+            .all(|scope| tok.scopes.contains(*scope));
+        let token_is_expired = tok.is_expired();
+        if tok.refresh_token.as_deref().is_none_or(str::is_empty) {
+            println!(
+                "[OAuth/Web API] Cached token has no refresh token. Reauthorization is required."
+            );
+        } else if tok.scopes.is_empty() {
+            println!(
+                "[OAuth/Web API] Cached token has unknown scopes; fresh Web API authorization is required."
+            );
+        } else if !cached_scopes_are_sufficient {
+            let missing_scopes = WEB_API_SCOPES
+                .iter()
+                .filter(|scope| !tok.scopes.contains(**scope))
+                .copied()
+                .collect::<Vec<_>>()
+                .join(", ");
+            println!(
+                "[OAuth/Web API] Cached token is missing required scope(s): {missing_scopes}. Reauthorization is required."
+            );
+        } else if token_is_expired {
+            *spotify.token.lock().await.unwrap() = Some(tok);
+            if let Err(e) = spotify::refresh_token_preserving_refresh_token(&spotify).await {
+                eprintln!("[OAuth/Web API] ⚠️ Failed to refresh expired cached token: {e}");
+            } else {
+                has_token = true;
+                println!(
+                    "[OAuth/Web API] Refreshed expired cached token. source=cached_refresh, client_id={}",
+                    client_id
+                );
+            }
+        } else {
+            *spotify.token.lock().await.unwrap() = Some(tok);
+            has_token = true;
+            println!(
+                "[OAuth/Web API] Loaded cached token; it is still valid. source=cache, configured_client_id={}",
+                client_id
+            );
+        }
+    }
+
+    if !has_token {
+        authorize_with_gateway(&mut spotify, cli, tls_files, "Web API").await?;
+        println!(
+            "[OAuth/Web API] Token successfully cached. source=fresh_oauth, client_id={}",
+            client_id
+        );
+    }
+
+    Ok(spotify::SpotifyClient::new(spotify))
 }
 
 #[tokio::main]
@@ -541,84 +705,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // librespot login stores a reusable credential blob in credentials.json.
     let session = connect_librespot_session(&cli, &cache_dir, &tls_files).await?;
 
-    // 4) rspotify Web API client setup with local token caching
-    let token_cache_path = cache_dir.join("rspotify_token.json");
-    if cli.client_id == NCSPOT_WEB_API_CLIENT_ID && !cli.skip_import {
-        try_import_ncspot_token(&token_cache_path);
-    }
-    let rconfig = RConfig {
-        cache_path: token_cache_path.clone(),
-        token_cached: true,
-        token_refreshing: false,
-        ..Default::default()
-    };
-    let rcreds = RCreds::new_pkce(&cli.client_id);
-    let ropts = OAuth {
-        redirect_uri: cli.redirect_uri.clone(),
-        scopes: WEB_API_SCOPES
-            .iter()
-            .map(|scope| (*scope).to_string())
-            .collect(),
-        ..Default::default()
-    };
-    let mut spotify = AuthCodePkceSpotify::with_config(rcreds, ropts, rconfig);
-
-    // Check if we have a valid cached token
-    let mut has_token = false;
-    // Reuse only tokens with known required scopes. An imported ncspot token
-    // with unknown scopes must trigger fresh Web API authorization, as it did
-    // with rspotify's cache reader, instead of silently reusing that grant.
-    if let Ok(tok) = rspotify::Token::from_cache(&token_cache_path) {
-        let cached_scopes_are_sufficient = WEB_API_SCOPES
-            .iter()
-            .all(|scope| tok.scopes.contains(*scope));
-        let token_is_expired = tok.is_expired();
-        if tok.refresh_token.as_deref().is_none_or(str::is_empty) {
-            println!(
-                "[OAuth/Web API] Cached token has no refresh token. Reauthorization is required."
-            );
-        } else if tok.scopes.is_empty() {
-            println!(
-                "[OAuth/Web API] Cached token has unknown scopes; fresh Web API authorization is required."
-            );
-        } else if !cached_scopes_are_sufficient {
-            let missing_scopes = WEB_API_SCOPES
-                .iter()
-                .filter(|scope| !tok.scopes.contains(**scope))
-                .copied()
-                .collect::<Vec<_>>()
-                .join(", ");
-            println!(
-                "[OAuth/Web API] Cached token is missing required scope(s): {missing_scopes}. Reauthorization is required."
-            );
-        } else if token_is_expired {
-            *spotify.token.lock().await.unwrap() = Some(tok);
-            if let Err(e) = spotify::refresh_token_preserving_refresh_token(&spotify).await {
-                eprintln!("[OAuth/Web API] ⚠️ Failed to refresh expired cached token: {e}");
-            } else {
-                has_token = true;
-                println!(
-                    "[OAuth/Web API] Refreshed expired cached token. source=cached_refresh, client_id={}",
-                    cli.client_id
-                );
-            }
-        } else {
-            *spotify.token.lock().await.unwrap() = Some(tok);
-            has_token = true;
-            println!(
-                "[OAuth/Web API] Loaded cached token; it is still valid. source=cache, configured_client_id={}",
-                cli.client_id
-            );
-        }
-    }
-
-    if !has_token {
-        authorize_with_gateway(&mut spotify, &cli, &tls_files, "Web API").await?;
-        println!(
-            "[OAuth/Web API] Token successfully cached. source=fresh_oauth, client_id={}",
-            cli.client_id
-        );
-    }
+    let spotify = setup_spotify_client(&cli, &cache_dir, &tls_files).await?;
 
     let bitrate = match cli.bitrate {
         96 => librespot::playback::config::Bitrate::Bitrate96,
@@ -671,7 +758,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let state = Arc::new(AppState {
         session: std::sync::Mutex::new(session.clone()),
         player_cfg,
-        spotify: spotify::SpotifyClient::new(spotify).with_session(session),
+        spotify: spotify.with_session(session),
         cmd_tx: cmd_tx.clone(),
         playlist_file: cli.playlist_path.clone(),
         start_time: Arc::new(Mutex::new(None)),
@@ -916,6 +1003,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .and(warp::path::end())
             .and(warp::get())
             .and_then(handle_oauth_page))
+        .or(warp::path!("oauth" / "complete")
+            .and(warp::get())
+            .and_then(handle_oauth_page))
         .or(warp::path!("api" / "privs")
             .and(warp::get())
             .and(warp::header::optional::<String>("x-api-key"))
@@ -990,6 +1080,13 @@ mod oauth_gateway_tests {
                 "expected-state".to_string(),
                 code_tx,
                 "Playback".to_string(),
+                OAuthCompletionConfig {
+                    callback_port: 8898,
+                    listener_port: 8898,
+                    callback_uses_tls: false,
+                    api_port: 3333,
+                    tls_port: 3443,
+                },
             ),
             code_rx,
         )
@@ -1017,6 +1114,74 @@ mod oauth_gateway_tests {
     }
 
     #[tokio::test]
+    async fn completion_page_waits_on_the_gateway_instead_of_restarting_oauth() {
+        let (routes, _) = routes();
+        let response = warp::test::request()
+            .path("/oauth/complete")
+            .reply(&routes)
+            .await;
+        assert_eq!(response.status(), warp::http::StatusCode::OK);
+        let page = std::str::from_utf8(response.body()).unwrap();
+        assert!(page.contains("fetch('/oauth/status'"));
+        assert!(page.contains("window.location.replace(playerLink.href)"));
+    }
+
+    #[tokio::test]
+    async fn callback_preserves_request_hostname_and_public_origin() {
+        for (host, expected_location) in [
+            ("etalon.cc", "/oauth/complete"),
+            ("etalon.cc:80", "/oauth/complete"),
+            ("etalon.cc:443", "/oauth/complete"),
+            ("etalon.cc:8443", "/oauth/complete"),
+            ("etalon.cc:3333", "/oauth/complete"),
+            ("etalon.cc:3443", "/oauth/complete"),
+            ("etalon.cc:8898", "http://etalon.cc:3333/oauth/complete"),
+            ("localhost:8898", "http://localhost:3333/oauth/complete"),
+            ("127.0.0.1:8898", "http://127.0.0.1:3333/oauth/complete"),
+            ("[::1]:8898", "http://[::1]:3333/oauth/complete"),
+        ] {
+            let (routes, mut code_rx) = routes();
+            let response = warp::test::request()
+                .path("/login?code=oauth-code&state=expected-state")
+                .header("host", host)
+                .reply(&routes)
+                .await;
+            assert_eq!(response.status(), warp::http::StatusCode::SEE_OTHER);
+            assert_eq!(
+                response.headers()["location"],
+                expected_location,
+                "Host: {host}"
+            );
+            assert_eq!(code_rx.recv().await.as_deref(), Some("oauth-code"));
+        }
+    }
+
+    #[test]
+    fn dedicated_callbacks_preserve_hostname_with_tls_and_listener_port_overrides() {
+        for callback_port in [8898, 8899] {
+            let completion = OAuthCompletionConfig {
+                callback_port,
+                listener_port: 9999,
+                callback_uses_tls: true,
+                api_port: 3333,
+                tls_port: 3443,
+            };
+            for port in [callback_port, 9999] {
+                assert_eq!(
+                    completion
+                        .location(Some(&format!("etalon.cc:{port}")))
+                        .unwrap(),
+                    "https://etalon.cc:3443/oauth/complete"
+                );
+            }
+            assert_eq!(
+                completion.location(Some("etalon.cc")).unwrap(),
+                "/oauth/complete"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn callback_validates_state_and_forwards_the_code() {
         let (routes, mut code_rx) = routes();
         let pending = warp::test::request()
@@ -1037,9 +1202,14 @@ mod oauth_gateway_tests {
 
         let accepted = warp::test::request()
             .path("/login?code=oauth-code&state=expected-state")
+            .header("host", "127.0.0.1:8898")
             .reply(&routes)
             .await;
-        assert_eq!(accepted.status(), warp::http::StatusCode::OK);
+        assert_eq!(accepted.status(), warp::http::StatusCode::SEE_OTHER);
+        assert_eq!(
+            accepted.headers()["location"],
+            "http://127.0.0.1:3333/oauth/complete"
+        );
         assert_eq!(code_rx.recv().await.as_deref(), Some("oauth-code"));
 
         let checking = warp::test::request()

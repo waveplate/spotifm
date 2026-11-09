@@ -20,15 +20,14 @@ tls_port = 3443
 # tls_cert = "/etc/letsencrypt/live/radio.example/fullchain.pem"
 # tls_key = "/etc/letsencrypt/live/radio.example/privkey.pem"
 
-# ===> Web API client ID for rspotify (borrowed from ncspot)
-client_id = "d420a117a32841c2b3474932e49fb54b"
-
-# ===> Playback client ID for librespot authentication and the playback session
-# Omit this to use librespot's platform-specific default (shown here for desktop).
-# playback_client_id = "65b708073fc0480ea92a077233ca87bd"
-
-# ===> OAuth redirect URI
+# ===> Playback OAuth and librespot session (these values are also the defaults)
+client_id = "65b708073fc0480ea92a077233ca87bd"
 redirect_uri = "http://127.0.0.1:8898/login"
+
+# Optional rspotify Web API OAuth (borrowed from ncspot).
+# Leave disabled to use anonymous search and playback-session metadata directly.
+# rspotify_client_id = "d420a117a32841c2b3474932e49fb54b"
+# rspotify_redirect_uri = "http://127.0.0.1:8899/ncspot_login"
 
 # ===> OAuth listener IP
 oauth_ip = "0.0.0.0"

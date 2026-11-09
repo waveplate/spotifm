@@ -3,6 +3,10 @@ use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+const DEFAULT_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
+const DEFAULT_REDIRECT_URI: &str = "http://127.0.0.1:8898/login";
+const DEFAULT_RSPOTIFY_REDIRECT_URI: &str = "http://127.0.0.1:8899/ncspot_login";
+
 fn validate_player_path(path: PathBuf) -> Result<PathBuf, String> {
     if path.to_string_lossy().contains("://") {
         Err("player must be a local directory or index.html path".to_string())
@@ -100,17 +104,21 @@ pub struct CliArgs {
     )]
     pub conf: Option<PathBuf>,
 
-    /// Spotify API client ID [default: d420a117a32841c2b3474932e49fb54b]
+    /// Spotify playback client ID [default: 65b708073fc0480ea92a077233ca87bd]
     #[arg(short = 'd', long = "client-id", help_heading = "Main options")]
     pub client_id: Option<String>,
 
-    /// Playback client ID [default: librespot's platform-specific client ID]
-    #[arg(long = "playback-client-id", help_heading = "OAuth options")]
-    pub playback_client_id: Option<String>,
+    /// Optional Web API client ID; omit to use catalogue fallback without Web API OAuth
+    #[arg(long = "rspotify-client-id", help_heading = "OAuth options")]
+    pub rspotify_client_id: Option<String>,
 
     /// Override the default OAuth redirect URI [default: http://127.0.0.1:8898/login]
     #[arg(short = 'r', long = "redirect-uri", help_heading = "Main options")]
     pub redirect_uri: Option<String>,
+
+    /// Web API OAuth redirect URI [default: http://127.0.0.1:8899/ncspot_login]
+    #[arg(long = "rspotify-redirect-uri", help_heading = "OAuth options")]
+    pub rspotify_redirect_uri: Option<String>,
 
     /// HTTP and HTTPS server IP [default: 0.0.0.0]
     #[arg(short = 's', long = "api-ip", help_heading = "Main options")]
@@ -246,11 +254,12 @@ pub struct ConfigFile {
     pub oauth_ip: Option<String>,
     pub oauth_port: Option<u16>,
     pub redirect_uri: Option<String>,
+    pub rspotify_redirect_uri: Option<String>,
     pub no_browser: Option<bool>,
     pub skip_import: Option<bool>,
     pub url_file: Option<PathBuf>,
     pub client_id: Option<String>,
-    pub playback_client_id: Option<String>,
+    pub rspotify_client_id: Option<String>,
     pub api_ip: Option<String>,
     pub api_port: Option<u16>,
     pub cors_origins: Option<Vec<String>>,
@@ -283,11 +292,12 @@ pub struct Cli {
     pub oauth_ip: Option<String>,
     pub oauth_port: Option<u16>,
     pub redirect_uri: String,
+    pub rspotify_redirect_uri: String,
     pub no_browser: bool,
     pub skip_import: bool,
     pub url_file: Option<PathBuf>,
     pub client_id: String,
-    pub playback_client_id: Option<String>,
+    pub rspotify_client_id: Option<String>,
     pub api_ip: String,
     pub api_port: u16,
     pub cors_origins: Vec<String>,
@@ -472,9 +482,10 @@ cors_origins = ["*"]
 tls_port = 3443
 # tls_cert = "/path/to/fullchain.pem"
 # tls_key = "/path/to/privkey.pem"
-client_id = "d420a117a32841c2b3474932e49fb54b"
-# playback_client_id = "65b708073fc0480ea92a077233ca87bd"
+client_id = "65b708073fc0480ea92a077233ca87bd"
 redirect_uri = "http://127.0.0.1:8898/login"
+# rspotify_client_id = "d420a117a32841c2b3474932e49fb54b"
+# rspotify_redirect_uri = "http://127.0.0.1:8899/ncspot_login"
 oauth_ip = "0.0.0.0"
 no_browser = false
 bitrate = 320
@@ -526,12 +537,20 @@ player = "player"
             }
         }
 
-        // 2. Merge values: CLI args take precedence over TOML values, which take precedence over defaults
+        Self::from_args_and_config(args, toml_config, playlist_path)
+    }
+
+    fn from_args_and_config(
+        args: CliArgs,
+        toml_config: ConfigFile,
+        playlist_path: PathBuf,
+    ) -> Self {
+        // CLI args take precedence over TOML values, which take precedence over defaults.
         let redirect_uri = args
             .redirect_uri
             .clone()
             .or(toml_config.redirect_uri.clone())
-            .unwrap_or_else(|| "http://127.0.0.1:8898/login".to_string());
+            .unwrap_or_else(|| DEFAULT_REDIRECT_URI.to_string());
 
         let api_ip = args
             .api_ip
@@ -579,6 +598,10 @@ player = "player"
             oauth_ip: args.oauth_ip.or(toml_config.oauth_ip),
             oauth_port: args.oauth_port.or(toml_config.oauth_port),
             redirect_uri,
+            rspotify_redirect_uri: args
+                .rspotify_redirect_uri
+                .or(toml_config.rspotify_redirect_uri)
+                .unwrap_or_else(|| DEFAULT_RSPOTIFY_REDIRECT_URI.to_string()),
             no_browser: args.no_browser.or(toml_config.no_browser).unwrap_or(false),
             skip_import: args
                 .skip_import
@@ -588,8 +611,8 @@ player = "player"
             client_id: args
                 .client_id
                 .or(toml_config.client_id)
-                .unwrap_or_else(|| "d420a117a32841c2b3474932e49fb54b".to_string()),
-            playback_client_id: args.playback_client_id.or(toml_config.playback_client_id),
+                .unwrap_or_else(|| DEFAULT_CLIENT_ID.to_string()),
+            rspotify_client_id: args.rspotify_client_id.or(toml_config.rspotify_client_id),
             api_ip,
             api_port: args.api_port.or(toml_config.api_port).unwrap_or(3333),
             cors_origins,
@@ -652,7 +675,7 @@ player = "player"
 mod tests {
     use super::{
         default_gst_pipelines, default_player_path, playlist_path_for_data_home,
-        resolve_config_and_playlist_paths, resolve_cors_origins, xdg_playlist_path, CliArgs,
+        resolve_config_and_playlist_paths, resolve_cors_origins, xdg_playlist_path, Cli, CliArgs,
         ConfigFile,
     };
     use clap::Parser;
@@ -673,20 +696,71 @@ mod tests {
         let args = CliArgs::try_parse_from([
             "spotifm",
             "--client-id",
-            "web-api-app",
-            "--playback-client-id",
             "playback-app",
+            "--rspotify-client-id",
+            "web-api-app",
+            "--redirect-uri",
+            "http://localhost:9000/playback",
+            "--rspotify-redirect-uri",
+            "http://localhost:9001/web-api",
         ])
         .unwrap();
-        assert_eq!(args.client_id.as_deref(), Some("web-api-app"));
-        assert_eq!(args.playback_client_id.as_deref(), Some("playback-app"));
-        let config: ConfigFile =
-            toml::from_str("client_id = 'web-api-config'\nplayback_client_id = 'playback-config'")
-                .unwrap();
-        assert_eq!(config.client_id.as_deref(), Some("web-api-config"));
+        let config: ConfigFile = toml::from_str(
+            "client_id = 'playback-config'\nrspotify_client_id = 'web-api-config'\n\
+             redirect_uri = 'http://localhost:8000/playback'\n\
+             rspotify_redirect_uri = 'http://localhost:8001/web-api'",
+        )
+        .unwrap();
+        let from_config = Cli::from_args_and_config(
+            CliArgs::try_parse_from(["spotifm"]).unwrap(),
+            config.clone(),
+            PathBuf::from("playlists"),
+        );
+        assert_eq!(from_config.client_id, "playback-config");
         assert_eq!(
-            config.playback_client_id.as_deref(),
-            Some("playback-config")
+            from_config.rspotify_client_id.as_deref(),
+            Some("web-api-config")
+        );
+        assert_eq!(from_config.redirect_uri, "http://localhost:8000/playback");
+        assert_eq!(
+            from_config.rspotify_redirect_uri,
+            "http://localhost:8001/web-api"
+        );
+
+        let from_cli = Cli::from_args_and_config(args, config, PathBuf::from("playlists"));
+        assert_eq!(from_cli.client_id, "playback-app");
+        assert_eq!(from_cli.rspotify_client_id.as_deref(), Some("web-api-app"));
+        assert_eq!(from_cli.redirect_uri, "http://localhost:9000/playback");
+        assert_eq!(
+            from_cli.rspotify_redirect_uri,
+            "http://localhost:9001/web-api"
+        );
+    }
+
+    #[test]
+    fn defaults_and_shipped_config_use_playback_auth_and_disable_web_api() {
+        for config in [
+            ConfigFile::default(),
+            toml::from_str(include_str!("../config.toml")).unwrap(),
+            toml::from_str("rspotify_redirect_uri = 'http://localhost:9001/web-api'").unwrap(),
+        ] {
+            let cli = Cli::from_args_and_config(
+                CliArgs::try_parse_from(["spotifm"]).unwrap(),
+                config,
+                PathBuf::from("playlists"),
+            );
+            assert_eq!(cli.client_id, "65b708073fc0480ea92a077233ca87bd");
+            assert_eq!(cli.redirect_uri, "http://127.0.0.1:8898/login");
+            assert!(cli.rspotify_client_id.is_none());
+        }
+        let cli = Cli::from_args_and_config(
+            CliArgs::try_parse_from(["spotifm", "--rspotify-client-id", "web-api-app"]).unwrap(),
+            ConfigFile::default(),
+            PathBuf::from("playlists"),
+        );
+        assert_eq!(
+            cli.rspotify_redirect_uri,
+            "http://127.0.0.1:8899/ncspot_login"
         );
     }
 

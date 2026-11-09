@@ -4,7 +4,7 @@
 
 ## linking your own app
 
-you can create an application in the spotify developer dashboard to use a public-facing `redirect_uri`. the configured URI must match the dashboard entry.
+you can opt into Web API access with an application in the spotify developer dashboard. `rspotify_redirect_uri` must match the dashboard entry.
 
 1. go to the [spotify developer dashboard](https://developer.spotify.com/dashboard)
 2. create a new application
@@ -13,31 +13,55 @@ you can create an application in the spotify developer dashboard to use a public
 5. copy the client ID
 
 ```sh
-./target/release/spotifm --redirect-uri https://radio.example:3443/login --client-id a1b2c3d4e5f6
+./target/release/spotifm --rspotify-redirect-uri https://radio.example:3443/login --rspotify-client-id a1b2c3d4e5f6
 ```
 
 ### Playback and Web API client IDs
 
-Spotifm follows [ncspot's separate authentication flows](https://github.com/hrkfdn/ncspot/blob/47c12502908a952f03e7c9f8224eb28d10c0ca07/src/authentication.rs):
+Playback and optional Web API access use separate authentication flows:
 
-- Playback uses `playback_client_id`, or librespot's default client ID when
-  omitted (`65b708073fc0480ea92a077233ca87bd` on desktop), and reusable
+- Playback uses `client_id`, defaulting to `65b708073fc0480ea92a077233ca87bd`,
+  with `redirect_uri = "http://127.0.0.1:8898/login"` and reusable
   `credentials.json` credentials. The same ID is used for playback OAuth and
-  the librespot session.
-- Search and metadata first use the configured Web API client ID, by default
-  `d420a117a32841c2b3474932e49fb54b`, and `rspotify_token.json`.
+  the librespot session, including when no configuration file is available.
+- Without `rspotify_client_id`, search uses anonymous web-player search and
+  metadata uses the playback session directly. Spotifm skips Web API OAuth,
+  token import, cache loading, and token refresh.
+- Setting `rspotify_client_id` enables Web API access with its own
+  `rspotify_redirect_uri` (default `http://127.0.0.1:8899/ncspot_login`) and
+  `rspotify_token.json`. Catalogue failures still use the fallback.
 
-`--playback-client-id` overrides the playback ID independently. `--client-id`
-changes the Web API app. Its refresh token must have been issued
-for that app. If catalogue requests fail, Spotifm can use anonymous web-player
-search and the existing playback session for metadata. See
-[anonymous search fallback](anonymous-search.md) for behavior and diagnostics.
+The shipped and automatically generated configs leave these optional settings
+commented out:
 
-When Spotifm's Web API cache is absent, automatic import may copy ncspot's
+```toml
+client_id = "65b708073fc0480ea92a077233ca87bd"
+redirect_uri = "http://127.0.0.1:8898/login"
+# rspotify_client_id = "d420a117a32841c2b3474932e49fb54b"
+# rspotify_redirect_uri = "http://127.0.0.1:8899/ncspot_login"
+```
+
+`--client-id` changes the playback app. `--rspotify-client-id` and
+`--rspotify-redirect-uri` override the optional Web API settings independently.
+Existing configs using `playback_client_id` should move that value to `client_id`
+and move their old Web API ID to `rspotify_client_id` if Web API access is wanted.
+Web API refresh tokens must have been issued for the configured Web API app.
+See [anonymous search fallback](anonymous-search.md) for behavior and diagnostics.
+
+When the ncspot Web API ID is explicitly enabled and its cache is absent, automatic import may copy ncspot's
 `rspotify_token.json`. A token without known required scopes is rejected and
 requires a fresh Web API authorization. Startup logs identify a cached token,
 a refreshed cached token, or a newly authorized token. `--skip-import` disables
 automatic credential import.
+
+After OAuth succeeds, the browser returns to `/oauth/complete` on the main
+HTTP or HTTPS server using the hostname of the incoming callback request.
+Callbacks through a reverse proxy keep the browser's public origin; direct
+callbacks on port 8898 or 8899 switch to the player port on the same hostname.
+That page waits for startup (and any enabled second
+authorization) to finish, then automatically opens the configured web player.
+In Docker, publish port 8899 as well as 8898 when enabling the default Web API
+callback.
 
 Spotify documents [rate limits per application](https://developer.spotify.com/documentation/web-api/concepts/rate-limits).
 Borrowing ncspot's Web API ID means sharing that app's quota. Catalogue requests
@@ -69,9 +93,10 @@ documented way to reset an application-wide rate limit.
 | `tls_port` | `--tls-port` | *(none)* | `3443` | HTTPS player/API port |
 | `tls_cert` | `--tls-cert FILE` | *(none)* | generated certificate | PEM certificate or certificate-chain file; requires `tls_key` |
 | `tls_key` | `--tls-key FILE` | *(none)* | generated private key | PEM private-key file; requires `tls_cert` |
-| `client_id` | `--client-id` | `-d` | `d420a117a32841c2b3474932e49fb54b` | spotify client ID |
-| `playback_client_id` | `--playback-client-id` | *(none)* | librespot platform default | client ID for playback OAuth and the playback session; independent of `client_id` |
-| `redirect_uri` | `--redirect-uri` | `-r` | `http://127.0.0.1:8898/login` | OAuth redirect URI sent to Spotify |
+| `client_id` | `--client-id` | `-d` | `65b708073fc0480ea92a077233ca87bd` | client ID for playback OAuth and the playback session |
+| `rspotify_client_id` | `--rspotify-client-id` | *(none)* | disabled | optional Web API app; omit to use the catalogue fallback directly |
+| `redirect_uri` | `--redirect-uri` | `-r` | `http://127.0.0.1:8898/login` | playback OAuth redirect URI |
+| `rspotify_redirect_uri` | `--rspotify-redirect-uri` | *(none)* | `http://127.0.0.1:8899/ncspot_login` | Web API OAuth redirect URI, used only when `rspotify_client_id` is set |
 | `oauth_ip` | `--oauth-ip` | `-S` | `0.0.0.0` | oauth listener address |
 | `oauth_port` | `--oauth-port` | `-P` | redirect URI port | oauth listener port override |
 | `no_browser` | `--no-browser [BOOL]` | `-x` | `false` | prevent opening the authorization page |

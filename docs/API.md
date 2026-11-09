@@ -107,12 +107,23 @@ Authorization helper served on the API port.
 Behavior:
 
 - If Spotifm has not finished OAuth authorization yet, this endpoint responds with an HTTP redirect to the Spotify authorization URL.
-- Once OAuth is already complete, this endpoint returns a small HTML page saying OAuth is already authorized.
+- Once startup is complete, this endpoint shows success and automatically opens the configured web player.
 
 Notes:
 
-- This is a convenience entrypoint only. The actual Spotify callback still goes to the configured `redirect_uri`.
+- The Spotify callback goes to `redirect_uri` for playback, or `rspotify_redirect_uri` when optional Web API authorization is enabled.
 - This is especially useful for headless or Docker deployments where opening a local browser from the CLI is inconvenient.
+
+### `GET /oauth/complete` and `GET /oauth/status`
+
+A successful callback redirects to `/oauth/complete` on the main HTTP or HTTPS
+server, preserving the callback request's hostname. Requests through a reverse
+proxy keep their public origin; direct requests to a dedicated callback port
+switch to the player port on the same hostname. The page polls
+`/oauth/status` until startup is ready, follows `/oauth` if another authorization
+is required, then opens the configured player path automatically. Once ready,
+the status response is `{"status":"authorized","player_url":"/"}` (with the
+configured `player_endpoint` in place of `/`).
 
 ## Search
 
@@ -128,7 +139,9 @@ Notes:
 - The response is an array whose item shape depends on the category.
 - `X-Spotify-Source` identifies `spotify_web_api` or `spotify_anonymous`.
 
-Search automatically falls back to anonymous web-player search after Web API
+With `rspotify_client_id` unset, search uses anonymous web-player search
+directly and metadata uses the playback session. When Web API access is enabled,
+search automatically falls back to anonymous web-player search after Web API
 rate limits, authorization failures, temporary network/server failures, or an
 incompatible response. Subsequent catalogue requests use the backup during the
 Web API's `Retry-After` interval plus one second, or for 60 seconds after other

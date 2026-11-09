@@ -35,12 +35,6 @@
 .demo-panel a { color: #cdb4ef; }
 .demo-status.demo-error { color: #f2bfac; }
 .demo-settings-hint { margin-top: 12px; padding-top: 10px; border-top: 1px solid #51435f; color: #c9bed6; font-size: 11px; }
-.spotifm-demo .lyrics-source-badge {
-    top: auto;
-    left: auto;
-    right: max(20px, env(safe-area-inset-right));
-    bottom: max(20px, env(safe-area-inset-bottom));
-}
 .spotifm-demo [data-settings-section-target="api-key"],
 .spotifm-demo [data-settings-section="api-key"],
 .spotifm-demo #toggle-search-btn,

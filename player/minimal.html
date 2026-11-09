@@ -213,7 +213,6 @@
                 <div class="controls">
                     <button id="play-button" type="button">Play</button>
                     <div id="status" class="status">Connecting</div>
-                    <span id="lyrics-source" class="status" hidden></span>
                 </div>
                 <div class="progress">
                     <span id="elapsed">0:00</span>
@@ -261,7 +260,6 @@
         const audio = document.getElementById('audio');
         const playButton = document.getElementById('play-button');
         const statusEl = document.getElementById('status');
-        const lyricsSourceEl = document.getElementById('lyrics-source');
         const titleEl = document.getElementById('title');
         const artistsEl = document.getElementById('artists');
         const coverEl = document.getElementById('cover');
@@ -597,11 +595,6 @@
             lyricsScrollFreezeUntilMs = performance.now() + LYRICS_SWAP_SCROLL_FREEZE_MS;
             activeLineIndex = -1;
             resetLyricsScrollPosition();
-
-            const source = state.type === 'Lyrics' ? state.source : null;
-            const provider = source === 'spotify' ? 'Spotify' : source === 'lrclib' ? 'LRCLIB' : null;
-            lyricsSourceEl.hidden = !provider;
-            lyricsSourceEl.textContent = provider ? `Lyrics · ${provider}` : '';
 
             if (state.type === 'Lyrics') {
                 currentLyricsStateType = 'Lyrics';
@@ -1341,8 +1334,6 @@
             } else if (msg.type === 'NoLyrics') {
                 handleIncomingLyricsState({ type: 'NoLyrics' });
             } else if (msg.type === 'Idle') {
-                lyricsSourceEl.hidden = true;
-                lyricsSourceEl.textContent = '';
                 clearDisplayedLyricsHold();
                 clearPendingLyricsTransition();
                 currentLyricsTrackId = null;

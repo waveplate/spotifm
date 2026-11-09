@@ -1,7 +1,7 @@
 # Lightweight Spotifm runtime container using the official install.sh script
 FROM alpine:3.21
 
-ARG VERSION=v3.3.0
+ARG VERSION=v3.3.1
 ARG REPO=waveplate/spotifm
 
 RUN apk add --no-cache bash ca-certificates curl tar && \

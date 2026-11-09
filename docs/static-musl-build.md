@@ -11,7 +11,7 @@ This document details how **spotifm** achieves a 100% standalone, statically-lin
 Install the static Musl binary and player assets directly with:
  
 ```sh
-curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.0/install.sh | bash -s -- --version 3.3.0
+curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.1/install.sh | bash -s -- --version 3.3.1
 ```
  
 This automatically places `spotifm` into `/usr/local/bin` and copies the web player into `/usr/local/share/spotifm/player` (or user paths if rootless).
@@ -23,6 +23,32 @@ To build the static Musl binary and extract it to `./target/x86_64-unknown-linux
 ```sh
 ./scripts/build-static-musl.sh
 ```
+
+Re-running the same command reuses the native-library/toolchain Docker layers
+and persistent Docker volumes for Cargo downloads and compiled dependencies.
+The first build fills the caches; subsequent source edits rebuild affected Rust
+crates and relink the binary. Unchanged builds reuse the compiled binary. The
+release profile still uses fat LTO, so linking after source edits can take time.
+Buildx is not required.
+
+The caches live in the `spotifm-static-musl-target`,
+`spotifm-static-musl-registry`, and `spotifm-static-musl-git` Docker volumes.
+They survive removal of build containers and deletion of the host `target/`
+directory. To try a fresh Cargo cache without deleting the existing one:
+
+```sh
+SPOTIFM_MUSL_CACHE_PREFIX=spotifm-static-musl-fresh ./scripts/build-static-musl.sh
+```
+
+To clear the default Cargo caches when no build is running:
+
+```sh
+docker volume rm spotifm-static-musl-target spotifm-static-musl-registry spotifm-static-musl-git
+```
+
+The standalone Docker image build still works with
+`docker build -f docker/static-musl/Dockerfile .`; the persistent Cargo volumes
+are used by the build script.
  
 ### 3. Generate Release Archive (.tar.gz)
  

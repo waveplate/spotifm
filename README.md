@@ -1,4 +1,4 @@
-# spotifm (3.3.0)
+# spotifm (3.3.1)
 
 
 ![spotifm](assets/spotifm.avif)
@@ -42,7 +42,7 @@
 #### one-liner
 
 > [!NOTE]
-> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.0/install.sh | bash -s -- --version 3.3.0`***
+> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.1/install.sh | bash -s -- --version 3.3.1`***
 
 
 this will install:
@@ -66,7 +66,7 @@ docker run -d \
   -p 3443:3443 \
   -v ${HOME}/.local/share/spotifm:/root/.local/share/spotifm \
   --name spotifm \
-  waveplate/spotifm:3.3.0
+  waveplate/spotifm:3.3.1
 ```
 
 or with docker-compose:
@@ -74,7 +74,7 @@ or with docker-compose:
 ```
 git clone https://github.com/waveplate/spotifm
 cd spotifm
-SPOTIFM_IMAGE=waveplate/spotifm:3.3.0 docker compose up -d spotifm
+SPOTIFM_IMAGE=waveplate/spotifm:3.3.1 docker compose up -d spotifm
 ```
 
 </details>
@@ -95,7 +95,7 @@ visit the `/oauth` endpoint, e.g., http://127.0.0.1:3333/oauth
 
 this endpoint will automatically redirect you to spotify's oauth authorization portal and generally guide you through the authorization process
 
-***why does it say ncspot?*** -- this is because we're borrowing the `client_id` used by the ncspot client for the sake of expediency. alternatively, see *[linking your own app](docs/configuration.md#linking-your-own-app)*
+***why does optional Web API authorization say ncspot?*** -- the commented `rspotify_client_id` example borrows ncspot's app ID. Web API authorization is disabled by default; playback uses `client_id`, and search and metadata use the catalogue fallback. alternatively, see *[linking your own app](docs/configuration.md#linking-your-own-app)*
 
 ### 3) listen to some music
 

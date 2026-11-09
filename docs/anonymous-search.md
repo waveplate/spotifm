@@ -1,6 +1,7 @@
 # Anonymous Spotify search fallback
 
-Spotifm automatically uses anonymous web-player search when the Web API returns
+Spotifm uses anonymous web-player search by default when `rspotify_client_id`
+is unset. If Web API access is enabled, it also uses anonymous search when the Web API returns
 `429`, rejects authorization, encounters a temporary server/network failure, or
 returns an incompatible response. It supports tracks, albums, artists, and
 playlists. The fallback runs directly in Rust; Python is not required by Spotifm.
@@ -29,8 +30,9 @@ from the fallback have `source: "spotify_anonymous"`. Logs use
 `[Catalogue/Anonymous]`, `[Catalogue/Playback session]`, and `[Catalogue]` prefixes.
 Unavailable popularity and preview URLs are returned as `null`.
 
-Startup still uses the existing playback and Web API authorization flows.
-No additional credentials or developer keys are needed for this fallback.
+Startup requires playback authentication. Web API authorization and its token
+cache are used only when `rspotify_client_id` is configured. No additional
+credentials or developer keys are needed for this fallback.
 Anonymous endpoints are undocumented and may change or rate-limit requests.
 
 ## Standalone probe

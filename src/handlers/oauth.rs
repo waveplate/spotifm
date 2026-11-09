@@ -123,6 +123,7 @@ pub fn authorization_transition_page(phase: &str) -> String {
                         title.textContent = 'Authorization Successful!';
                         message.textContent = 'Spotifm is connected to Spotify and ready to play.';
                         playerLink.href = result.player_url || '/';
+                        window.setTimeout(() => window.location.replace(playerLink.href), 500);
                         return;
                     }}
                 }} catch (_) {{

@@ -38,7 +38,7 @@
         const AUDIO_STALL_TIMEOUT_MS = 10000;
         const AUDIO_RECONNECT_BASE_DELAY_MS = 1000;
         const AUDIO_RECONNECT_MAX_DELAY_MS = 10000;
-        const SPOTIFM_PLAYER_VERSION = 67;
+        const SPOTIFM_PLAYER_VERSION = 68;
 
         // Check if saved localStorage version matches/exceeds current version, otherwise clear it.
         (function checkLocalStorageVersion() {
@@ -121,20 +121,12 @@
         const songTitle = document.getElementById('song-title');
         const songArtists = document.getElementById('song-artists');
         const syncStatus = document.getElementById('sync-status');
-        const lyricsSourceBadge = document.getElementById('lyrics-source');
         const listenerCount = document.getElementById('listener-count');
         const trackProgressFill = document.getElementById('track-progress-fill');
         const trackInfo = document.querySelector('.track-info');
 
         const syncStatusBadge = document.getElementById('sync-status-badge');
 
-        function updateLyricsSource(source) {
-            if (!lyricsSourceBadge) return;
-            const provider = source === 'spotify' ? 'Spotify' : source === 'lrclib' ? 'LRCLIB' : null;
-            lyricsSourceBadge.hidden = !provider;
-            lyricsSourceBadge.textContent = provider ? `Lyrics · ${provider}` : '';
-            lyricsSourceBadge.dataset.source = provider ? source : '';
-        }
         
         function updateSyncStatusIcon() {
             const svgLyrics = document.getElementById('sync-svg-lyrics');
@@ -1432,7 +1424,6 @@
                         clearPendingLyricsTransition();
                         currentLyricsStateType = null;
                         currentLyricsTrackId = null;
-                        updateLyricsSource(null);
                         syncedLines = [];
                         renderPlaceholder('Loading lyrics', 'Loading bundled synced lyrics');
                         updateAutoSyncStatus();
@@ -2385,12 +2376,10 @@
             if (state.type === 'Lyrics') {
                 currentLyricsStateType = 'Lyrics';
                 currentLyricsTrackId = state.track_id || null;
-                updateLyricsSource(state.source);
                 renderLyrics(state.lines);
             } else if (state.type === 'NoLyrics') {
                 currentLyricsStateType = 'NoLyrics';
                 currentLyricsTrackId = null;
-                updateLyricsSource(null);
                 renderPlaceholder("Not Available", "No lyrics available for this track");
             }
             updateSyncStatusIcon();
@@ -4267,7 +4256,6 @@
                         clearPendingLyricsTransition();
                         currentLyricsTrackId = null;
                         currentLyricsStateType = null;
-                        updateLyricsSource(null);
                         currentPlaybackTrackId = null;
                         confirmedPlaybackTrackId = null;
                         currentTrackDurationMs = null;
