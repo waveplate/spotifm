@@ -38,7 +38,7 @@
         const AUDIO_STALL_TIMEOUT_MS = 10000;
         const AUDIO_RECONNECT_BASE_DELAY_MS = 1000;
         const AUDIO_RECONNECT_MAX_DELAY_MS = 10000;
-        const SPOTIFM_PLAYER_VERSION = 68;
+        const SPOTIFM_PLAYER_VERSION = 69;
 
         // Check if saved localStorage version matches/exceeds current version, otherwise clear it.
         (function checkLocalStorageVersion() {
@@ -5081,6 +5081,13 @@
                 const butterchurn = await loadButterchurnModule();
                 if (!butterchurn || typeof butterchurn.createVisualizer !== 'function') {
                     return null;
+                }
+                // Context activation and playback can both request a renderer
+                // while the module loads. Reuse the one created by the first
+                // caller so the rendered instance is the one receiving audio.
+                if (milkdropVisualizer) {
+                    connectMilkdropAudio();
+                    return milkdropVisualizer;
                 }
                 resizeCanvas();
                 const mesh = (milkdropMeshSize || '32x24').split('x');
