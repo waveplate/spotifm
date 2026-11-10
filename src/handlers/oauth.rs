@@ -7,6 +7,7 @@ use warp::Reply;
 struct OAuthStatusResponse {
     status: &'static str,
     player_url: String,
+    tls_port: u16,
 }
 
 pub fn authorization_transition_page(phase: &str) -> String {
@@ -122,7 +123,12 @@ pub fn authorization_transition_page(phase: &str) -> String {
                         card.classList.add('ready');
                         title.textContent = 'Authorization Successful!';
                         message.textContent = 'Spotifm is connected to Spotify and ready to play.';
-                        playerLink.href = result.player_url || '/';
+                        const playerUrl = new URL(result.player_url || '/', window.location.href);
+                        if (window.location.hostname !== '127.0.0.1') {{
+                            playerUrl.protocol = 'https:';
+                            playerUrl.port = String(result.tls_port);
+                        }}
+                        playerLink.href = playerUrl.href;
                         window.setTimeout(() => window.location.replace(playerLink.href), 500);
                         return;
                     }}
@@ -144,6 +150,7 @@ pub async fn handle_oauth_status(state: Arc<AppState>) -> Result<impl Reply, Inf
     Ok(warp::reply::json(&OAuthStatusResponse {
         status: "authorized",
         player_url: state.cli.player_endpoint.clone(),
+        tls_port: state.cli.tls_port,
     }))
 }
 

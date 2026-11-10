@@ -139,20 +139,20 @@ impl OAuthCompletionConfig {
             return Ok("/oauth/complete".to_string());
         };
         let authority = request_host.parse::<warp::http::uri::Authority>()?;
+        let requires_https = authority.host() != "127.0.0.1";
         let port = authority.port_u16();
         let uses_callback_port =
             port == Some(self.callback_port) || port == Some(self.listener_port);
         let uses_gateway_port = port == Some(self.api_port) || port == Some(self.tls_port);
 
-        // A callback through the main server or a reverse proxy must keep the
-        // browser's origin, including its public port and HTTP/HTTPS scheme.
-        if !uses_callback_port || uses_gateway_port {
+        // Local callbacks can keep their current origin. Other hostnames use
+        // the HTTPS player endpoint, including callbacks through a proxy.
+        if !requires_https && (!uses_callback_port || uses_gateway_port) {
             return Ok("/oauth/complete".to_string());
         }
 
-        // Only a direct callback on the dedicated listener needs a port change.
-        // Its hostname comes from this request, never the configured redirect URI.
-        let (scheme, gateway_port) = if self.callback_uses_tls {
+        // Keep the hostname from this request, never the configured redirect URI.
+        let (scheme, gateway_port) = if requires_https || self.callback_uses_tls {
             ("https", self.tls_port)
         } else {
             ("http", self.api_port)
@@ -1127,18 +1127,25 @@ mod oauth_gateway_tests {
     }
 
     #[tokio::test]
-    async fn callback_preserves_request_hostname_and_public_origin() {
+    async fn callbacks_use_https_except_for_127_0_0_1_and_preserve_the_request_hostname() {
         for (host, expected_location) in [
-            ("etalon.cc", "/oauth/complete"),
-            ("etalon.cc:80", "/oauth/complete"),
-            ("etalon.cc:443", "/oauth/complete"),
-            ("etalon.cc:8443", "/oauth/complete"),
-            ("etalon.cc:3333", "/oauth/complete"),
-            ("etalon.cc:3443", "/oauth/complete"),
-            ("etalon.cc:8898", "http://etalon.cc:3333/oauth/complete"),
-            ("localhost:8898", "http://localhost:3333/oauth/complete"),
+            ("etalon.cc", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:80", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:443", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:8443", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:3333", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:3443", "https://etalon.cc:3443/oauth/complete"),
+            ("etalon.cc:8898", "https://etalon.cc:3443/oauth/complete"),
+            ("localhost:8898", "https://localhost:3443/oauth/complete"),
+            (
+                "192.168.1.10:8898",
+                "https://192.168.1.10:3443/oauth/complete",
+            ),
+            ("127.0.0.1", "/oauth/complete"),
+            ("127.0.0.1:3333", "/oauth/complete"),
+            ("127.0.0.1:3443", "/oauth/complete"),
             ("127.0.0.1:8898", "http://127.0.0.1:3333/oauth/complete"),
-            ("[::1]:8898", "http://[::1]:3333/oauth/complete"),
+            ("[::1]:8898", "https://[::1]:3443/oauth/complete"),
         ] {
             let (routes, mut code_rx) = routes();
             let response = warp::test::request()
@@ -1176,9 +1183,28 @@ mod oauth_gateway_tests {
             }
             assert_eq!(
                 completion.location(Some("etalon.cc")).unwrap(),
-                "/oauth/complete"
+                "https://etalon.cc:3443/oauth/complete"
             );
         }
+    }
+
+    #[test]
+    fn remote_callback_uses_the_configured_https_port() {
+        let completion = OAuthCompletionConfig {
+            callback_port: 8898,
+            listener_port: 8898,
+            callback_uses_tls: false,
+            api_port: 4333,
+            tls_port: 4443,
+        };
+        assert_eq!(
+            completion.location(Some("etalon.cc:4333")).unwrap(),
+            "https://etalon.cc:4443/oauth/complete"
+        );
+        assert_eq!(
+            completion.location(Some("127.0.0.1:8898")).unwrap(),
+            "http://127.0.0.1:4333/oauth/complete"
+        );
     }
 
     #[tokio::test]

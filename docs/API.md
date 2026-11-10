@@ -116,14 +116,15 @@ Notes:
 
 ### `GET /oauth/complete` and `GET /oauth/status`
 
-A successful callback redirects to `/oauth/complete` on the main HTTP or HTTPS
-server, preserving the callback request's hostname. Requests through a reverse
-proxy keep their public origin; direct requests to a dedicated callback port
-switch to the player port on the same hostname. The page polls
+A successful callback redirects to `/oauth/complete`, preserving the callback
+request's hostname. Hostnames other than `127.0.0.1` use HTTPS on the configured
+`tls_port` (3443 by default); `127.0.0.1` can keep HTTP. The page polls
 `/oauth/status` until startup is ready, follows `/oauth` if another authorization
 is required, then opens the configured player path automatically. Once ready,
-the status response is `{"status":"authorized","player_url":"/"}` (with the
-configured `player_endpoint` in place of `/`).
+the status response is `{"status":"authorized","player_url":"/","tls_port":3443}`
+(with the configured `player_endpoint` and `tls_port`). The final player
+navigation applies the same HTTPS rule, including when visiting `/oauth`
+after startup is complete.
 
 ## Search
 

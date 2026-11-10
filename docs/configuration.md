@@ -55,11 +55,12 @@ a refreshed cached token, or a newly authorized token. `--skip-import` disables
 automatic credential import.
 
 After OAuth succeeds, the browser returns to `/oauth/complete` on the main
-HTTP or HTTPS server using the hostname of the incoming callback request.
-Callbacks through a reverse proxy keep the browser's public origin; direct
-callbacks on port 8898 or 8899 switch to the player port on the same hostname.
-That page waits for startup (and any enabled second
-authorization) to finish, then automatically opens the configured web player.
+server using the hostname of the incoming callback request. Hostnames other
+than `127.0.0.1` use HTTPS on the configured `tls_port` (3443 by default),
+including callbacks through a proxy. Local `127.0.0.1` callbacks can use HTTP.
+That page waits for startup (and any enabled second authorization) to finish,
+then automatically opens the configured web player. Visiting `/oauth` after
+startup applies the same HTTPS rule when opening the player.
 In Docker, publish port 8899 as well as 8898 when enabling the default Web API
 callback.
 
