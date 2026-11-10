@@ -38,7 +38,7 @@
         const AUDIO_STALL_TIMEOUT_MS = 10000;
         const AUDIO_RECONNECT_BASE_DELAY_MS = 1000;
         const AUDIO_RECONNECT_MAX_DELAY_MS = 10000;
-        const SPOTIFM_PLAYER_VERSION = 69;
+        const SPOTIFM_PLAYER_VERSION = 70;
 
         // Check if saved localStorage version matches/exceeds current version, otherwise clear it.
         (function checkLocalStorageVersion() {
