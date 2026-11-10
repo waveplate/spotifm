@@ -59,7 +59,7 @@
   "milkdropDisabledPresets": [],
   "milkdropCycleSeconds": 5,
   "milkdropBlendSeconds": 0,
-  "milkdropCycleOnSongChange": false,
+  "milkdropCycleOnSongChange": true,
   "playerOpacity": 0,
   "playerBorderOpacity": 1,
   "playerBlur": 5,
