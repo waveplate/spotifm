@@ -54,7 +54,6 @@ impl CatalogSearch {
                             track_name: t.name,
                             duration_ms: t.duration.num_milliseconds() as i32,
                             explicit: t.explicit,
-                            popularity: Some(t.popularity as i32),
                             artists: t.artists.iter().map(|a| a.name.clone()).collect(),
                             artist_ids: t
                                 .artists
@@ -105,8 +104,6 @@ impl CatalogSearch {
                         artist_id: a.id.id().to_owned(),
                         uri: a.id.uri(),
                         artist_name: a.name,
-                        genres: a.genres,
-                        popularity: Some(a.popularity as i32),
                         cover_url: a.images.first().map(|i| i.url.clone()),
                     })
                     .take(limit)
@@ -120,7 +117,7 @@ impl CatalogSearch {
                         uri: p.id.uri(),
                         playlist_name: p.name,
                         owner: p.owner.display_name.unwrap_or_default(),
-                        total_tracks: p.tracks.total,
+                        total_tracks: p.items.total,
                         cover_url: p.images.first().map(|i| i.url.clone()),
                     })
                     .take(limit)
@@ -245,7 +242,6 @@ fn anonymous_results(
                             .clamp(0, i32::MAX as i64) as i32,
                         explicit: node.pointer("/contentRating/label").and_then(Value::as_str)
                             == Some("EXPLICIT"),
-                        popularity: None,
                         artists: artist_names(node),
                         artist_ids: artist_ids(node),
                         album_id: node_id(&node["album"], "album").map(|(id, _)| id),
@@ -283,8 +279,6 @@ fn anonymous_results(
                         uri,
                         artist_name: text(&node["profile"], "name")
                             .or_else(|| text(node, "name"))?,
-                        genres: Vec::new(),
-                        popularity: None,
                         cover_url: cover(node),
                     })
                 })
