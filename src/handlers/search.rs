@@ -12,10 +12,10 @@ pub async fn handle_search_category(
     state: Arc<AppState>,
 ) -> Result<warp::reply::Response, Infallible> {
     println!("[API] GET /search/{}?q={}&limit={limit}", category, query.q);
-    if !(1..=50).contains(&limit) {
+    if !(1..=10).contains(&limit) {
         return Ok(super::helpers::json_error(
             StatusCode::BAD_REQUEST,
-            "Search limit must be between 1 and 50",
+            "Search limit must be between 1 and 10",
         ));
     }
     let Some(search_type) = search_type_for_category(&category) else {
