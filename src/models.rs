@@ -223,7 +223,6 @@ pub struct ExtendedTrack {
     pub track_name: String,
     pub duration_ms: i32,
     pub explicit: bool,
-    pub popularity: Option<i32>,
     pub artists: Vec<String>,
     #[serde(default)]
     pub artist_ids: Vec<String>,
@@ -252,8 +251,6 @@ pub struct SimpleArtist {
     pub artist_id: String,
     pub uri: String,
     pub artist_name: String,
-    pub genres: Vec<String>,
-    pub popularity: Option<i32>,
     pub cover_url: Option<String>,
 }
 

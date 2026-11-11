@@ -479,7 +479,7 @@ async fn resolve_playlist_tracks_by_id_web(
                          skipped_unavailable: &mut usize,
                          skipped_missing_id: &mut usize| {
         for playlist_item in items {
-            if let Some(PlayableItem::Track(track)) = playlist_item.track {
+            if let Some(PlayableItem::Track(track)) = playlist_item.item {
                 if let Some(mut item) = full_track_to_item(&track, None) {
                     item.playlist_id = Some(source_playlist_id.clone());
                     item.playlist_name = Some(source_playlist_name.clone());
@@ -493,7 +493,7 @@ async fn resolve_playlist_tracks_by_id_web(
         }
     };
 
-    let first_page = full_playlist.tracks;
+    let first_page = full_playlist.items;
     println!(
         "[API] Playlist '{}' metadata reports total={} first_page_items={} next={}",
         playlist_id_str,
@@ -804,7 +804,8 @@ async fn catalog_metadata_with_fallback(
         // elapsed while the request was in progress.
         Err(primary)
             if client.prefer_catalog_fallback()
-                || client.catalog_failure_count() != failures_before =>
+                || client.catalog_failure_count() != failures_before
+                || primary.contains("404 Not Found") =>
         {
             eprintln!(
                 "[Catalogue] Retrying {category} metadata through the playback session: {primary}"
