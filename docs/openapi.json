@@ -3,7 +3,7 @@
   "info": {
     "title": "Spotifm API",
     "description": "personal web radio server powered by Spotify.",
-    "version": "3.3.1"
+    "version": "3.3.2"
   },
   "servers": [
     {

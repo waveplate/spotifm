@@ -1,4 +1,4 @@
-# spotifm (3.3.1)
+# spotifm (3.3.2)
 
 
 ![spotifm](assets/spotifm.avif)
@@ -42,7 +42,7 @@
 #### one-liner
 
 > [!NOTE]
-> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.1/install.sh | bash -s -- --version 3.3.1`***
+> ##### ***`curl -fsSL https://raw.githubusercontent.com/waveplate/spotifm/v3.3.2/install.sh | bash -s -- --version 3.3.2`***
 
 
 this will install:
@@ -66,7 +66,7 @@ docker run -d \
   -p 3443:3443 \
   -v ${HOME}/.local/share/spotifm:/root/.local/share/spotifm \
   --name spotifm \
-  waveplate/spotifm:3.3.1
+  waveplate/spotifm:3.3.2
 ```
 
 or with docker-compose:
@@ -74,7 +74,7 @@ or with docker-compose:
 ```
 git clone https://github.com/waveplate/spotifm
 cd spotifm
-SPOTIFM_IMAGE=waveplate/spotifm:3.3.1 docker compose up -d spotifm
+SPOTIFM_IMAGE=waveplate/spotifm:3.3.2 docker compose up -d spotifm
 ```
 
 </details>
