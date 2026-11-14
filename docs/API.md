@@ -135,7 +135,8 @@ after startup is complete.
 
 Notes:
 
-- `limit` must be between `1` and `50`.
+- `limit` must be between `1` and `10`, regardless of which provider is used.
+- Each provider attempt fetches one page. Larger limits return `400`.
 - Unknown categories return `400`.
 - The response is an array whose item shape depends on the category.
 - `X-Spotify-Source` identifies `spotify_web_api` or `spotify_anonymous`.
@@ -223,6 +224,42 @@ Category-specific item shapes:
 - `album`: objects with `album_id`, `uri`, `album_name`, `artists`, `artist_ids`, `cover_url`
 - `artist`: objects with `artist_id`, `uri`, `artist_name`, `genres`, `popularity`, `cover_url`
 - `playlist`: objects with `playlist_id`, `uri`, `playlist_name`, `owner`, `total_tracks`, `cover_url`
+
+For playlist search results, `total_tracks` is `null` when the provider does not
+supply a count. The player omits unknown counts; a confirmed empty playlist has
+`total_tracks: 0` and displays `0 tracks`.
+
+### `GET /search/official/<category>/<limit>?q=<query>&offset=0`
+
+Searches only the official Spotify Web API and returns its native JSON object,
+including the category's paging object (`tracks`, `albums`, `artists`, or
+`playlists`). Provider fields are preserved; Spotifm does not convert them to
+the common item shapes above. `X-Spotify-Source` is `spotify_web_api`.
+
+`category` accepts the same four categories as the common endpoint. `limit`
+must be `1`–`10`, and the optional `offset` must be `0`–`1000`. This performs
+one provider request, with the usual token refresh if needed. It requires
+`rspotify_client_id`; otherwise it returns `503`. A provider failure is
+returned to the caller, including `Retry-After` when supplied. This endpoint
+does not fall back, even during the common endpoint's fallback interval.
+
+### `GET /search/internal/<limit>?q=<query>&offset=0`
+
+Searches only Spotify's internal web-player API and returns the complete native
+GraphQL JSON response, including `data`, any `errors`, and additional provider
+fields. The internal search operation returns several categories together,
+so this endpoint has no category parameter. `limit` must be `1`–`50` per
+category; the optional `offset` is a nonnegative integer. `X-Spotify-Source`
+is `spotify_anonymous`.
+
+This endpoint works without `rspotify_client_id`, shares the anonymous visitor
+session and successful-response cache with the common endpoint, and does not
+try the official API. GraphQL errors delivered with HTTP `200` retain that
+status and body; the common endpoint instead rejects a response without usable
+search data. HTTP failures use Spotifm's usual provider error format.
+
+All three search endpoints use the `search` permission. The bundled player
+uses the common endpoint with a limit of ten and its normalized JSON array.
 
 ## Playback
 

@@ -31,7 +31,7 @@
     "/search/{category}/{limit}": {
       "get": {
         "summary": "Search Spotify",
-        "description": "Search tracks, albums, artists, or playlists by query, with automatic anonymous web-player fallback when the Web API fails.",
+        "description": "Returns Spotifm's normalized JSON array for tracks, albums, artists, or playlists. Accepts at most ten results for either provider, with one page per provider attempt. Uses anonymous web-player search when rspotify_client_id is unset, with automatic fallback when the Web API fails. Requires the search permission.",
         "parameters": [
           {
             "name": "category",
@@ -54,7 +54,7 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 50
+              "maximum": 10
             }
           },
           {
@@ -74,7 +74,10 @@
                 "description": "Spotify catalogue provider used for this response",
                 "schema": {
                   "type": "string",
-                  "enum": ["spotify_web_api", "spotify_anonymous"]
+                  "enum": [
+                    "spotify_web_api",
+                    "spotify_anonymous"
+                  ]
                 }
               }
             },
@@ -82,6 +85,7 @@
               "application/json": {
                 "schema": {
                   "type": "array",
+                  "maxItems": 10,
                   "items": {
                     "oneOf": [
                       {
@@ -123,6 +127,189 @@
                 }
               }
             },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/official/{category}/{limit}": {
+      "get": {
+        "summary": "Search the official Spotify Web API",
+        "description": "Returns the native Spotify JSON object and its category paging object without normalization or fallback. Makes one provider request even during the common endpoint's fallback interval. Requires rspotify_client_id and the search permission.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "track",
+                "album",
+                "artist",
+                "playlist"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native Spotify Web API search response, including provider fields and pagination",
+            "headers": {
+              "X-Spotify-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "spotify_web_api"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid category, limit, query, or offset"
+          },
+          "429": {
+            "description": "Official Spotify rate limit; no fallback is attempted",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Web API access is disabled because rspotify_client_id is unset"
+          },
+          "default": {
+            "description": "Spotify Web API failure in Spotifm's provider error format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/internal/{limit}": {
+      "get": {
+        "summary": "Search Spotify's internal web-player API",
+        "description": "Returns the complete native GraphQL JSON response, including data, any errors, and additional provider fields. The upstream operation searches multiple categories together. Uses the anonymous visitor session and cache without official API fallback. Requires the search permission.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native GraphQL response; may contain GraphQL errors even with HTTP 200",
+            "headers": {
+              "X-Spotify-Source": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "spotify_anonymous"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit, query, or offset"
+          },
+          "429": {
+            "description": "Internal Spotify API rate limit; no fallback is attempted",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Internal Spotify API transport or HTTP failure",
             "content": {
               "application/json": {
                 "schema": {
@@ -1855,7 +2042,10 @@
             "type": "string"
           },
           "total_tracks": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Playlist track count when supplied by the provider; null when unavailable"
           },
           "cover_url": {
             "type": "string",

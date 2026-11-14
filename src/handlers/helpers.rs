@@ -16,6 +16,7 @@ use url::form_urlencoded;
 use warp::{http::StatusCode, Reply};
 
 const SEARCH_MIN_CANDIDATE_LIMIT: u32 = 5;
+pub const SEARCH_MAX_LIMIT: u32 = 10;
 const ARTIST_ALBUM_REQUEST_CONCURRENCY: usize = 2;
 static STREAM_SESSION_COUNTER: AtomicU64 = AtomicU64::new(1);
 static SPOTIFY_METADATA_REQUESTS: tokio::sync::Semaphore =
@@ -241,11 +242,15 @@ pub async fn catalog_search(
     // Fetch a stable candidate window for small searches, then trim the result.
     let candidate_limit = spotify_search_candidate_limit(limit);
     if !client.prefer_catalog_fallback() {
-        match client
-            .search(query, search_type, None, None, Some(candidate_limit), None)
+        let result = client
+            .search_raw(query, search_type, candidate_limit, 0)
             .await
-        {
-            Ok(result) => return CatalogSearch::from_web(result, limit as usize),
+            .and_then(|response| {
+                let rows = crate::catalog::web_search_rows(&response, search_type)?;
+                CatalogSearch::from_web(rows, search_type, limit as usize)
+            });
+        match result {
+            Ok(result) => return Ok(result),
             Err(error) if crate::spotify::can_use_catalog_fallback(&error) => {
                 if !client.prefer_catalog_fallback() {
                     client.note_catalog_failure(&error);
@@ -274,7 +279,7 @@ mod tests {
         assert_eq!(spotify_search_candidate_limit(1), 5);
         assert_eq!(spotify_search_candidate_limit(3), 5);
         assert_eq!(spotify_search_candidate_limit(5), 5);
-        assert_eq!(spotify_search_candidate_limit(20), 20);
+        assert_eq!(spotify_search_candidate_limit(10), 10);
     }
 }
 

@@ -66,8 +66,8 @@ use crate::handlers::{
     handle_playlist_remove_track, handle_playlist_shuffle, handle_playlist_shuffle_named,
     handle_playlist_sort, handle_playlist_sort_named, handle_playlist_switch, handle_playlists,
     handle_queue_category, handle_queue_category_search, handle_queue_list,
-    handle_remove_queue_track, handle_search_category, handle_skip, handle_skip_category,
-    handle_skip_n, handle_stream,
+    handle_remove_queue_track, handle_search, handle_skip, handle_skip_category, handle_skip_n,
+    handle_stream, search_request,
 };
 use crate::state::AppState;
 use crate::tls::{resolve_tls_files, TlsFiles};
@@ -833,12 +833,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .and(state::with_state(state.clone()))
         .and_then(handle_player_asset_name);
 
-    let routes = warp::path!("search" / String / u32)
+    let routes = search_request()
         .and(warp::get())
-        .and(warp::query::<crate::models::SearchQuery>())
         .and(check_permission("search", state.clone()))
         .and(state::with_state(state.clone()))
-        .and_then(handle_search_category)
+        .and_then(handle_search)
         .or(warp::path("np")
             .and(warp::get())
             .and(state::with_state(state.clone()))

@@ -29,5 +29,5 @@ pub use queue::{
     handle_queue_category, handle_queue_category_search, handle_queue_list,
     handle_remove_queue_track,
 };
-pub use search::handle_search_category;
+pub use search::{handle_search, search_request};
 pub use stream::handle_stream;

@@ -59,11 +59,12 @@ struct VisitorToken {
 #[derive(Default)]
 struct VisitorState {
     token: Option<VisitorToken>,
-    searches: HashMap<(String, u32), (Instant, Value)>,
+    searches: HashMap<(String, u32, u32), (Instant, Value)>,
 }
 
 pub struct AnonymousSearch {
     http: Client,
+    search_url: String,
     // Serialize bootstrap and searches so concurrent requests share one visitor
     // token and identical queries reuse a response rather than stampeding.
     state: Mutex<VisitorState>,
@@ -89,6 +90,7 @@ impl Default for AnonymousSearch {
                 .build()
                 .expect("Anonymous Spotify HTTP client configuration is valid"),
             state: Mutex::new(VisitorState::default()),
+            search_url: SEARCH.to_owned(),
         }
     }
 }
@@ -223,16 +225,20 @@ impl AnonymousSearch {
         })
     }
 
-    pub async fn search(&self, query: &str, limit: u32) -> Result<Value, FallbackError> {
+    pub async fn search(
+        &self,
+        query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Value, FallbackError> {
         let mut state = self.state.lock().await;
         let limit = limit.clamp(1, 50);
-        let key = (query.to_owned(), limit);
+        let key = (query.to_owned(), limit, offset);
         state.searches.retain(|_, (at, _)| at.elapsed() < CACHE_TTL);
         if let Some((_, result)) = state.searches.get(&key) {
             return Ok(result.clone());
         }
-        let variables =
-            json!({ "searchTerm": query, "offset": 0, "limit": limit, "numberOfTopResults": 5 });
+        let variables = json!({ "searchTerm": query, "offset": offset, "limit": limit, "numberOfTopResults": 5 });
         let extensions = json!({ "persistedQuery": { "version": 1, "sha256Hash": SEARCH_HASH } });
         for attempt in 0..2 {
             if state
@@ -245,7 +251,7 @@ impl AnonymousSearch {
             let token = &state.token.as_ref().unwrap().access_token;
             let response = self
                 .http
-                .get(SEARCH)
+                .get(&self.search_url)
                 .query(&[
                     ("operationName", "searchDesktop"),
                     ("variables", &variables.to_string()),
@@ -267,18 +273,34 @@ impl AnonymousSearch {
                 .json()
                 .await
                 .map_err(FallbackError::transport)?;
-            let search = result.pointer("/data/searchV2").filter(|value| value.is_object())
-                .or_else(|| result.pointer("/data/search").filter(|value| value.is_object()))
-                .ok_or_else(|| FallbackError::protocol("Spotify anonymous search returned no search data; the web-player protocol may have changed"))?;
-            // GraphQL may include partial data alongside errors. Missing category
-            // sections are rejected by the normalizer, never treated as empty.
-            let search = search.clone();
             if state.searches.len() >= 128 {
                 state.searches.clear();
             }
-            state.searches.insert(key, (Instant::now(), search.clone()));
-            return Ok(search);
+            // Keep the complete GraphQL response for the native endpoint.
+            // Do not cache errors, so a later request can recover immediately.
+            let has_search_data = ["/data/searchV2", "/data/search"]
+                .iter()
+                .any(|path| result.pointer(path).is_some_and(Value::is_object));
+            if has_search_data && result.get("errors").is_none() {
+                state.searches.insert(key, (Instant::now(), result.clone()));
+            }
+            return Ok(result);
         }
         unreachable!("anonymous search retries a rejected visitor token only once")
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(search_url: String) -> Self {
+        Self {
+            search_url,
+            state: Mutex::new(VisitorState {
+                token: Some(VisitorToken {
+                    access_token: "test-visitor-token".to_owned(),
+                    expires_at: Instant::now() + Duration::from_secs(3600),
+                }),
+                ..Default::default()
+            }),
+            ..Self::default()
+        }
     }
 }

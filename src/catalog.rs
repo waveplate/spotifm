@@ -4,8 +4,7 @@ use crate::models::{ExtendedTrack, SimpleAlbum, SimpleArtist, SimplePlaylist, Tr
 use futures_util::{stream, StreamExt};
 use librespot::core::{Session, SpotifyUri};
 use librespot_metadata::{Album, Artist, Metadata, Playlist, Track};
-use rspotify::model::{SearchResult, SearchType};
-use rspotify::prelude::Id;
+use rspotify::model::SearchType;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -41,102 +40,150 @@ impl CatalogSearch {
         }
     }
 
-    pub fn from_web(result: SearchResult, limit: usize) -> Result<Self, CatalogError> {
-        let items = match result {
-            SearchResult::Tracks(page) => SearchItems::Tracks(
-                page.items
-                    .into_iter()
+    pub fn from_web(
+        rows: &[Value],
+        category: SearchType,
+        limit: usize,
+    ) -> Result<Self, rspotify::ClientError> {
+        // Normalize JSON directly so removed or newly added provider fields do
+        // not dictate Spotifm's public response structure.
+        let names = |node: &Value| -> Vec<String> {
+            node["artists"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|artist| text(artist, "name"))
+                .collect()
+        };
+        let ids = |node: &Value| -> Vec<String> {
+            node["artists"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|artist| text(artist, "id"))
+                .collect()
+        };
+        let image = |node: &Value| text(&node["images"][0], "url");
+        let popularity = |node: &Value| node["popularity"].as_i64().map(|n| n.clamp(0, 100) as i32);
+        let items = match category {
+            SearchType::Track => SearchItems::Tracks(
+                rows.iter()
                     .filter_map(|t| {
-                        let id = t.id?;
+                        let (id, uri) = node_id(t, "track")?;
                         Some(ExtendedTrack {
-                            track_id: id.id().to_owned(),
-                            uri: id.uri(),
-                            track_name: t.name,
-                            duration_ms: t.duration.num_milliseconds() as i32,
-                            explicit: t.explicit,
-                            popularity: Some(t.popularity as i32),
-                            artists: t.artists.iter().map(|a| a.name.clone()).collect(),
-                            artist_ids: t
-                                .artists
-                                .iter()
-                                .filter_map(|a| a.id.as_ref().map(|id| id.id().to_owned()))
-                                .collect(),
-                            album_id: t.album.id.as_ref().map(|id| id.id().to_owned()),
-                            album_name: Some(t.album.name),
-                            album_artists: t.album.artists.iter().map(|a| a.name.clone()).collect(),
-                            cover_url: t
-                                .album
-                                .images
-                                .iter()
-                                .find(|i| i.height == Some(640))
-                                .or_else(|| t.album.images.first())
-                                .map(|i| i.url.clone()),
-                            preview_url: t.preview_url,
+                            track_id: id,
+                            uri,
+                            track_name: text(t, "name")?,
+                            duration_ms: t["duration_ms"]
+                                .as_i64()
+                                .unwrap_or(0)
+                                .clamp(0, i32::MAX as i64)
+                                as i32,
+                            explicit: t["explicit"].as_bool().unwrap_or(false),
+                            popularity: popularity(t),
+                            artists: names(t),
+                            artist_ids: ids(t),
+                            album_id: text(&t["album"], "id"),
+                            album_name: text(&t["album"], "name"),
+                            album_artists: names(&t["album"]),
+                            cover_url: t["album"]["images"].as_array().and_then(|images| {
+                                images
+                                    .iter()
+                                    .find(|i| i["height"].as_u64() == Some(640))
+                                    .or_else(|| images.first())
+                                    .and_then(|i| text(i, "url"))
+                            }),
+                            preview_url: text(t, "preview_url"),
                         })
                     })
                     .take(limit)
                     .collect(),
             ),
-            SearchResult::Albums(page) => SearchItems::Albums(
-                page.items
-                    .into_iter()
+            SearchType::Album => SearchItems::Albums(
+                rows.iter()
                     .filter_map(|a| {
-                        let id = a.id?;
+                        let (id, uri) = node_id(a, "album")?;
                         Some(SimpleAlbum {
-                            album_id: id.id().to_owned(),
-                            uri: id.uri(),
-                            album_name: a.name,
-                            artists: a.artists.iter().map(|a| a.name.clone()).collect(),
-                            artist_ids: a
-                                .artists
-                                .iter()
-                                .filter_map(|a| a.id.as_ref().map(|id| id.id().to_owned()))
-                                .collect(),
-                            cover_url: a.images.first().map(|i| i.url.clone()),
+                            album_id: id,
+                            uri,
+                            album_name: text(a, "name")?,
+                            artists: names(a),
+                            artist_ids: ids(a),
+                            cover_url: image(a),
                         })
                     })
                     .take(limit)
                     .collect(),
             ),
-            SearchResult::Artists(page) => SearchItems::Artists(
-                page.items
-                    .into_iter()
-                    .map(|a| SimpleArtist {
-                        artist_id: a.id.id().to_owned(),
-                        uri: a.id.uri(),
-                        artist_name: a.name,
-                        genres: a.genres,
-                        popularity: Some(a.popularity as i32),
-                        cover_url: a.images.first().map(|i| i.url.clone()),
+            SearchType::Artist => SearchItems::Artists(
+                rows.iter()
+                    .filter_map(|a| {
+                        let (id, uri) = node_id(a, "artist")?;
+                        Some(SimpleArtist {
+                            artist_id: id,
+                            uri,
+                            artist_name: text(a, "name")?,
+                            genres: a["genres"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter_map(Value::as_str)
+                                .map(str::to_owned)
+                                .collect(),
+                            popularity: popularity(a),
+                            cover_url: image(a),
+                        })
                     })
                     .take(limit)
                     .collect(),
             ),
-            SearchResult::Playlists(page) => SearchItems::Playlists(
-                page.items
-                    .into_iter()
-                    .map(|p| SimplePlaylist {
-                        playlist_id: p.id.id().to_owned(),
-                        uri: p.id.uri(),
-                        playlist_name: p.name,
-                        owner: p.owner.display_name.unwrap_or_default(),
-                        total_tracks: p.tracks.total,
-                        cover_url: p.images.first().map(|i| i.url.clone()),
+            SearchType::Playlist => SearchItems::Playlists(
+                rows.iter()
+                    .filter_map(|p| {
+                        let (id, uri) = node_id(p, "playlist")?;
+                        Some(SimplePlaylist {
+                            playlist_id: id,
+                            uri,
+                            playlist_name: text(p, "name")?,
+                            owner: text(&p["owner"], "display_name").unwrap_or_default(),
+                            total_tracks: p
+                                .pointer("/items/total")
+                                .and_then(Value::as_u64)
+                                .or_else(|| p.pointer("/tracks/total").and_then(Value::as_u64))
+                                .and_then(|total| u32::try_from(total).ok()),
+                            cover_url: image(p),
+                        })
                     })
                     .take(limit)
                     .collect(),
             ),
-            _ => {
-                return Err(CatalogError::Anonymous(FallbackError::protocol(
-                    "Unsupported catalogue search type",
-                )))
-            }
+            _ => return Err(invalid_web_search("Unsupported catalogue search type")),
         };
         Ok(Self {
             items,
             source: "spotify_web_api",
         })
     }
+}
+
+pub fn invalid_web_search(message: &str) -> rspotify::ClientError {
+    rspotify::ClientError::ParseJson(serde::de::Error::custom(message))
+}
+
+pub fn web_search_rows(
+    response: &Value,
+    category: SearchType,
+) -> Result<&Vec<Value>, rspotify::ClientError> {
+    let key = match category {
+        SearchType::Track => "tracks",
+        SearchType::Album => "albums",
+        SearchType::Artist => "artists",
+        SearchType::Playlist => "playlists",
+        _ => return Err(invalid_web_search("Unsupported catalogue search type")),
+    };
+    response[key]["items"]
+        .as_array()
+        .ok_or_else(|| invalid_web_search("Spotify Web API returned an unexpected search response"))
 }
 
 fn unwrap_node(mut node: &Value) -> &Value {
@@ -305,8 +352,7 @@ fn anonymous_results(
                         total_tracks: node
                             .pointer("/content/totalCount")
                             .and_then(Value::as_u64)
-                            .unwrap_or(0)
-                            .min(u32::MAX as u64) as u32,
+                            .and_then(|total| u32::try_from(total).ok()),
                         cover_url: cover(node),
                     })
                 })
@@ -351,14 +397,36 @@ impl CatalogFallback {
         }
     }
 
+    pub async fn search_raw(
+        &self,
+        query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Value, FallbackError> {
+        self.anonymous.search(query, limit, offset).await
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_anonymous_for_test(anonymous: AnonymousSearch) -> Self {
+        Self {
+            anonymous,
+            ..Self::default()
+        }
+    }
+
     pub async fn search(
         &self,
         query: &str,
         category: SearchType,
         limit: u32,
     ) -> Result<CatalogSearch, FallbackError> {
-        let search = self.anonymous.search(query, limit.max(5)).await?;
-        let items = anonymous_results(&search, category, limit as usize)?;
+        let response = self.search_raw(query, limit.max(5), 0).await?;
+        let search = response
+            .pointer("/data/searchV2")
+            .filter(|value| value.is_object())
+            .or_else(|| response.pointer("/data/search").filter(|value| value.is_object()))
+            .ok_or_else(|| FallbackError::protocol("Spotify anonymous search returned no search data; the web-player protocol may have changed"))?;
+        let items = anonymous_results(search, category, limit as usize)?;
         if let SearchItems::Tracks(tracks) = &items {
             let mut cache = self.tracks.lock().await;
             if cache.len() >= 2048 {

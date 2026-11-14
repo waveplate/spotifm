@@ -121,6 +121,30 @@ impl SpotifyClient {
                 .is_some_and(|until| Instant::now() < until)
     }
 
+    pub fn web_api_enabled(&self) -> bool {
+        !self.catalog_only
+    }
+
+    /// Preserve the provider's JSON, including fields unknown to the SDK.
+    pub async fn search_raw(
+        &self,
+        query: &str,
+        category: rspotify::model::SearchType,
+        limit: u32,
+        offset: u32,
+    ) -> ClientResult<serde_json::Value> {
+        let limit = limit.to_string();
+        let offset = offset.to_string();
+        let params = Query::from([
+            ("q", query),
+            ("type", category.into()),
+            ("limit", limit.as_str()),
+            ("offset", offset.as_str()),
+        ]);
+        let response = self.api_get("search", &params).await?;
+        Ok(serde_json::from_str(&response)?)
+    }
+
     pub fn catalog_failure_count(&self) -> u64 {
         self.catalog_failures.load(Ordering::Relaxed)
     }

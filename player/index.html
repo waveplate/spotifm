@@ -5751,7 +5751,7 @@
         const AUDIO_STALL_TIMEOUT_MS = 10000;
         const AUDIO_RECONNECT_BASE_DELAY_MS = 1000;
         const AUDIO_RECONNECT_MAX_DELAY_MS = 10000;
-        const SPOTIFM_PLAYER_VERSION = 70;
+        const SPOTIFM_PLAYER_VERSION = 73;
 
         // Check if saved localStorage version matches/exceeds current version, otherwise clear it.
         (function checkLocalStorageVersion() {
@@ -13886,7 +13886,7 @@
             showSearchMessage('Searching…');
 
             try {
-                let url = `/search/${category}/20?q=${encodeURIComponent(q)}`;
+                let url = `/search/${category}/10?q=${encodeURIComponent(q)}`;
                 if (apiKeyEnabled && apiKey) {
                     url += `&api_key=${encodeURIComponent(apiKey)}`;
                 }
@@ -14286,7 +14286,12 @@
                     id = item.album_id;
                 } else if (activeSearchCat === 'playlist') {
                     title = item.playlist_name;
-                    subtext = `By ${item.owner || ''} • ${item.total_tracks || 0} tracks`;
+                    const details = [];
+                    if (item.owner) details.push(`By ${item.owner}`);
+                    if (Number.isInteger(item.total_tracks) && item.total_tracks >= 0) {
+                        details.push(`${item.total_tracks} ${item.total_tracks === 1 ? 'track' : 'tracks'}`);
+                    }
+                    subtext = details.join(' • ');
                     id = item.playlist_id;
                 }
 

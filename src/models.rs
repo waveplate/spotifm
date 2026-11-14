@@ -168,6 +168,14 @@ pub struct SearchQuery {
     pub q: String,
 }
 
+/// Native provider searches expose that provider's pagination.
+#[derive(Deserialize)]
+pub struct ProviderSearchQuery {
+    pub q: String,
+    #[serde(default)]
+    pub offset: u32,
+}
+
 /// Query parameters for the live stream endpoint.
 #[derive(Deserialize, Default)]
 pub struct StreamQuery {
@@ -264,7 +272,7 @@ pub struct SimplePlaylist {
     pub uri: String,
     pub playlist_name: String,
     pub owner: String,
-    pub total_tracks: u32,
+    pub total_tracks: Option<u32>,
     pub cover_url: Option<String>,
 }
 

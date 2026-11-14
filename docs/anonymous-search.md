@@ -24,11 +24,22 @@ playlist operations use the same fallback. Track metadata is cached in memory
 for 15 minutes; simultaneous track metadata requests are bounded. Incomplete playlist
 responses produce an error rather than silently importing only part of a list.
 
-Successful `/search/...` responses keep their existing JSON array format and
+Successful common `/search/<category>/<limit>` responses keep their existing JSON array format and
 include `X-Spotify-Source: spotify_web_api` or `spotify_anonymous`. Search errors
 from the fallback have `source: "spotify_anonymous"`. Logs use
 `[Catalogue/Anonymous]`, `[Catalogue/Playback session]`, and `[Catalogue]` prefixes.
 Unavailable popularity and preview URLs are returned as `null`.
+Playlist track counts are also `null` when absent from search results, and the
+player omits those counts instead of displaying zero.
+
+The native provider endpoints are `/search/official/<category>/<limit>` and
+`/search/internal/<limit>`, both with `?q=<query>` and optional `offset`.
+They return provider JSON without normalization or cross-provider fallback.
+The internal endpoint preserves the full GraphQL response, including errors;
+it uses the same visitor session and cache as normalized searches. The common
+endpoint accepts a limit of `1`–`10` for either provider and fetches one page
+per provider attempt. The native internal endpoint retains its `1`–`50`
+limit. See the [search API reference](API.md#search).
 
 Startup requires playback authentication. Web API authorization and its token
 cache are used only when `rspotify_client_id` is configured. No additional
