@@ -95,8 +95,6 @@ visit the `/oauth` endpoint, e.g., http://127.0.0.1:3333/oauth
 
 this endpoint will automatically redirect you to spotify's oauth authorization portal and generally guide you through the authorization process
 
-***why does optional Web API authorization say ncspot?*** -- the commented `rspotify_client_id` example borrows ncspot's app ID. Web API authorization is disabled by default; playback uses `client_id`, and search and metadata use the catalogue fallback. alternatively, see *[linking your own app](docs/configuration.md#linking-your-own-app)*
-
 ### 3) listen to some music
 
 > [!important]
